@@ -1,8 +1,10 @@
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import type { AirQualityData, ConnectionStatus } from '@/types/airQuality';
+import type { AirQualityData, ConnectionStatus, MetricKey } from '@/types/airQuality';
 import { useToast } from "@/hooks/use-toast";
+import { METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
 
 const INITIAL_DATA: AirQualityData = {
   co2: 450,
@@ -20,8 +22,7 @@ export function useAirQualityData() {
     setConnectionStatus('connecting');
     toast({ title: "Connecting...", description: "Attempting to connect to AirCube device." });
     setTimeout(() => {
-      // Simulate connection success/failure
-      const success = Math.random() > 0.2; // 80% chance of success
+      const success = Math.random() > 0.2; 
       if (success) {
         setConnectionStatus('connected');
         setData(INITIAL_DATA);
@@ -46,16 +47,39 @@ export function useAirQualityData() {
     if (connectionStatus === 'connected') {
       intervalId = setInterval(() => {
         setData((prevData) => {
-          if (!prevData) return INITIAL_DATA; // Should not happen if connected
-          // Simulate data fluctuations
-          return {
-            co2: Math.max(300, Math.min(3000, prevData.co2 + Math.floor(Math.random() * 101) - 50)), // Fluctuate by +/- 50
-            co: Math.max(0, Math.min(100, prevData.co + Math.floor(Math.random() * 5) - 2)), // Fluctuate by +/- 2
-            temperature: parseFloat((prevData.temperature + (Math.random() * 2) - 1).toFixed(1)), // Fluctuate by +/- 1
-            humidity: Math.max(10, Math.min(90, prevData.humidity + Math.floor(Math.random() * 5) - 2)), // Fluctuate by +/- 2
+          if (!prevData) return INITIAL_DATA; 
+
+          const newData: AirQualityData = {
+            co2: Math.max(300, Math.min(3000, prevData.co2 + Math.floor(Math.random() * 401) - 200)), // Fluctuate more to hit danger
+            co: Math.max(0, Math.min(100, prevData.co + Math.floor(Math.random() * 11) - 5)),       // Fluctuate more
+            temperature: parseFloat((prevData.temperature + (Math.random() * 4) - 2).toFixed(1)),   // Fluctuate more
+            humidity: Math.max(10, Math.min(90, prevData.humidity + Math.floor(Math.random() * 21) - 10)), // Fluctuate more
           };
+
+          // Check for transitions to danger status
+          (Object.keys(METRIC_CONFIGS) as MetricKey[]).forEach((key) => {
+            const metricConfig = METRIC_CONFIGS[key];
+            const currentValue = newData[key];
+            const previousValue = prevData ? prevData[key] : null;
+
+            if (currentValue === null || currentValue === undefined) return;
+
+            const currentStatus = getMetricStatus(key, currentValue);
+            const previousStatus = (typeof previousValue === 'number') ? getMetricStatus(key, previousValue) : 'unknown';
+
+            if (currentStatus === 'danger' && previousStatus !== 'danger') {
+              toast({
+                title: `⚠️ Critical Alert: ${metricConfig.label}`,
+                description: `${metricConfig.label} is at ${currentValue}${metricConfig.unit}. Please take action.`,
+                variant: "destructive",
+                duration: 7000, 
+              });
+            }
+          });
+
+          return newData;
         });
-      }, 3000); // Update data every 3 seconds
+      }, 3000); 
     }
 
     return () => {
@@ -63,7 +87,8 @@ export function useAirQualityData() {
         clearInterval(intervalId);
       }
     };
-  }, [connectionStatus]);
+  }, [connectionStatus, toast]); // Added toast to dependency array
 
   return { data, connectionStatus, connectDevice, disconnectDevice };
 }
+
