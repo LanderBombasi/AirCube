@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { ConnectionStatus } from '@/types/airQuality';
@@ -56,7 +57,7 @@ export function Header({ connectionStatus, onConnect, onDisconnect }: HeaderProp
             </Button>
           )}
           {canDisconnect && (
-            <Button onClick={onDisconnect} variant="destructive" outline>
+            <Button onClick={onDisconnect} variant="destructive">
               <PlugZap className="mr-2 h-4 w-4" /> Disconnect
             </Button>
           )}
