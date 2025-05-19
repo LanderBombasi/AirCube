@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useAirQualityData } from '@/hooks/useAirQualityData';
@@ -50,8 +51,8 @@ export function DashboardClient() {
       <main className="flex-grow container mx-auto p-4 md:p-8">
         {connectionStatus === 'connecting' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            {metricKeys.map((key) => (
-              <CardSkeleton key={key} />
+            {metricKeys.map((metricKey) => (
+              <CardSkeleton key={metricKey} metricId={metricKey} />
             ))}
           </div>
         )}
@@ -75,9 +76,9 @@ export function DashboardClient() {
   );
 }
 
-function CardSkeleton({ key }: { key: string}) {
+function CardSkeleton({ metricId }: { metricId: string}) {
   return (
-    <div key={key} className="p-6 rounded-lg border bg-card shadow-sm">
+    <div className="p-6 rounded-lg border bg-card shadow-sm">
       <div className="flex flex-row items-center justify-between space-y-0 pb-2">
         <Skeleton className="h-5 w-2/4" /> 
         <Skeleton className="h-5 w-5 rounded-full" />
