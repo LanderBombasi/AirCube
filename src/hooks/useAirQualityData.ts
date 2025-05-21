@@ -8,7 +8,7 @@ import { METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
 import { database } from '@/lib/firebaseConfig';
 import { ref, onValue, off, DatabaseReference } from "firebase/database";
 
-const FIREBASE_DATA_PATH = '/airQuality/liveData';
+const FIREBASE_DATA_PATH = '/data'; // Updated path
 
 export function useAirQualityData() {
   const [data, setData] = useState<AirQualityData | null>(null);
@@ -78,14 +78,14 @@ export function useAirQualityData() {
     setData(null);
     previousDataRef.current = null;
     
-    if (dataRef.current && listenerAttachedRef.current) { // Check if listener was attached before trying to detach
+    if (dataRef.current && listenerAttachedRef.current) { 
         console.log("[AirQualityData] Detaching listener due to error for path:", dataRef.current.toString());
         off(dataRef.current);
     } else {
         console.log("[AirQualityData] Listener was not attached or dataRef is null, no detachment needed on error.");
     }
-    listenerAttachedRef.current = false; // Ensure it's marked as not attached
-    dataRef.current = null; // Clear the ref
+    listenerAttachedRef.current = false; 
+    dataRef.current = null; 
 
     toast({ title: "Firebase Connection Error", description: `Error: ${error.message}. Check console and Firebase rules.`, variant: "destructive" });
   }, [toast]);
@@ -132,12 +132,11 @@ export function useAirQualityData() {
       };
       
       console.log("[AirQualityData] Calling 'onValue' to attach listener...");
-      onValue(dataRef.current, dataListener, handleError); // handleError is the direct error callback
+      onValue(dataRef.current, dataListener, handleError); 
       console.log("[AirQualityData] 'onValue' listener attachment initiated.");
 
     } catch (error: any) {
       console.error("[AirQualityData] Synchronous error during 'connectDevice' (e.g., ref creation):", error);
-      // Call handleError to ensure consistent error state management
       handleError(new Error(error.message || "Failed to initialize Firebase listener during connectDevice"));
     }
   }, [toast, handleDataUpdate, handleError]);
