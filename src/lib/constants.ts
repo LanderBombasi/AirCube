@@ -1,11 +1,12 @@
+
 import type { MetricConfig, MetricKey, MetricStatus } from '@/types/airQuality';
-import { Thermometer, Droplets, Atom, FlameKindling, TriangleAlert } from 'lucide-react';
+import { Thermometer, Droplets, Atom, FlameKindling } from 'lucide-react'; // Removed TriangleAlert as it's not used directly here
 
 export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   co2: {
     label: 'CO₂ Levels',
     unit: 'ppm',
-    Icon: Atom, // Replaced Molecule with Atom
+    Icon: Atom,
     thresholds: {
       normalHigh: 1000, // Below 1000 is normal
       dangerHigh: 2000, // Above 2000 is danger, between normalHigh and dangerHigh is warning
@@ -20,7 +21,7 @@ export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
       dangerHigh: 50, // Above 50 is danger, between normalHigh and dangerHigh is warning
     },
   },
-  temperature: {
+  temp: { // Changed key from 'temperature' to 'temp'
     label: 'Temperature',
     unit: '°C',
     Icon: Thermometer,
@@ -50,6 +51,7 @@ export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
 
 export const getMetricStatus = (metricKey: MetricKey, value: number): MetricStatus => {
   const config = METRIC_CONFIGS[metricKey];
+  if (typeof value !== 'number' || isNaN(value)) return 'unknown'; // Added check for NaN
   if (!config) return 'unknown';
 
   const { normalHigh, warningLow, warningHigh, dangerLow, dangerHigh, idealLow, idealHigh } = config.thresholds;
@@ -60,18 +62,13 @@ export const getMetricStatus = (metricKey: MetricKey, value: number): MetricStat
     return 'danger';
   }
 
-  if (metricKey === 'temperature' || metricKey === 'humidity') {
+  // Changed 'temperature' to 'temp'
+  if (metricKey === 'temp' || metricKey === 'humidity') {
     if (value < dangerLow! || value > dangerHigh!) return 'danger';
     if (value < warningLow! || value > warningHigh!) return 'warning';
-    // Values within ideal range but outside warning (e.g. ideal 20-25, warning 18-28. A value of 19 is warning, 22 is normal)
-    // This condition check for normal: inside ideal range
     if (value >= idealLow! && value <= idealHigh!) return 'normal';
-    // If its not danger, and not normal (within ideal), it must be warning if its within warning range.
-    // Or handle cases where ideal range is narrower than warning ranges.
-    // If value is within warningLow/High but not idealLow/High, it's a warning.
-    // Example: Ideal 20-25. Warning 18-28. Value 19 -> (19 < 20 && 19 >= 18) -> warning
-    // Value 26 -> (26 > 25 && 26 <= 28) -> warning
-    // If it's not danger and not normal, it's warning
+    // If it's not danger and not normal (within ideal), it implies it's in the warning range but outside ideal.
+    // This covers cases like ideal 20-25, warning 18-28. Value 19 is warning. Value 26 is warning.
     return 'warning';
   }
   

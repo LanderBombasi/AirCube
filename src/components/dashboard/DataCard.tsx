@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { MetricConfig, MetricStatus } from '@/types/airQuality';
@@ -49,7 +50,7 @@ export function DataCard({ metricConfig, value, status }: DataCardProps) {
         <Icon className={cn("h-5 w-5", value === null ? "text-muted-foreground" : isCritical ? valueColor() : "text-primary" )} />
       </CardHeader>
       <CardContent>
-        {value !== null ? (
+        {value !== null && typeof value === 'number' ? ( // Added typeof value check
           <>
             <div className={cn("text-3xl font-bold text-accent", valueColor())}>
               {value.toLocaleString(undefined, { maximumFractionDigits: 1 })}
@@ -71,7 +72,7 @@ export function DataCard({ metricConfig, value, status }: DataCardProps) {
          <p className="text-xs text-muted-foreground pt-1">
           {label === 'CO₂ Levels' && "Ideal: <1000 ppm"}
           {label === 'CO Levels' && "Ideal: <9 ppm"}
-          {label === 'Temperature' && "Ideal: 20-25 °C"}
+          {label === 'Temperature' && "Ideal: 20-25 °C"} 
           {label === 'Humidity' && "Ideal: 40-60 %"}
         </p>
       </CardContent>

@@ -1,7 +1,8 @@
+
 export type AirQualityData = {
   co2: number;
   co: number;
-  temperature: number;
+  temp: number; // Changed from 'temperature' to 'temp'
   humidity: number;
 };
 
