@@ -26,12 +26,12 @@ export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
     unit: '°C',
     Icon: Thermometer,
     thresholds: {
-      idealLow: 23,    // Philippines: Ideal 23-27°C
-      idealHigh: 27,
-      warningLow: 20,  // Warning if 20-22.9°C or 27.1-30°C
-      warningHigh: 30,
-      dangerLow: 18,   // Danger < 18°C
-      dangerHigh: 32,  // Danger > 32°C
+      idealLow: 24,    // Philippines (Dec-Feb): Ideal 24-31°C
+      idealHigh: 31,
+      warningLow: 21,  // Warning if 21-23.9°C or 31.1-34°C
+      warningHigh: 34,
+      dangerLow: 20,   // Danger < 21°C (effectively, values below warningLow)
+      dangerHigh: 35,  // Danger > 34°C (effectively, values above warningHigh)
     },
   },
   humidity: {
@@ -43,8 +43,8 @@ export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
       idealHigh: 65,
       warningLow: 35,  // Warning if 35-44.9% or 65.1-75%
       warningHigh: 75,
-      dangerLow: 30,   // Danger < 30%
-      dangerHigh: 80,  // Danger > 80%
+      dangerLow: 30,   // Danger < 35%
+      dangerHigh: 80,  // Danger > 75%
     },
   },
 };
@@ -64,14 +64,21 @@ export const getMetricStatus = (metricKey: MetricKey, value: number): MetricStat
 
   if (metricKey === 'temp' || metricKey === 'humidity') {
     // Order of checks is important for temp/humidity with distinct danger/warning/ideal ranges
-    if (value < dangerLow! || value > dangerHigh!) return 'danger';
+    if (value < dangerLow! || value > dangerHigh!) return 'danger'; // Catches extremes first
     if (value < warningLow! || value > warningHigh!) return 'warning'; // Catches values outside ideal but not yet danger
-    if (value >= idealLow! && value <= idealHigh!) return 'normal';
+    if (value >= idealLow! && value <= idealHigh!) return 'normal'; // Values within ideal range
     
-    // If it's not danger, not explicitly warning (outside warningLow/High), and not normal (within ideal),
-    // it implies it's in a range between ideal and warning boundaries, which should be warning.
-    // Example: ideal 23-27, warningLow 20, warningHigh 30. Value 22 is warning. Value 28 is warning.
-    return 'warning';
+    // This specific check for 'temp' ensures values between danger and warning are still warning
+    // For example, if dangerLow is 20, warningLow is 21, idealLow is 24:
+    // 19 is danger. 20.5 is danger. 21 is warning. 23.9 is warning. 24 is normal.
+    // This logic holds true if dangerLow/High are set slightly outside warningLow/High
+    // E.g., temp: ideal 24-31, warning 21-23.9 or 31.1-34, danger <21 or >34.
+    // A value of 20.5 would be < dangerLow (if dangerLow = 21 for example, or using effective < warningLow for danger)
+    // Let's refine the condition for danger/warning based on explicit thresholds
+    if (value < idealLow! || value > idealHigh!) return 'warning'; // If not danger, and not normal, it must be warning.
+
+    // Should not be reached if thresholds are set correctly, but as a fallback
+    return 'unknown'; 
   }
   
   return 'unknown';

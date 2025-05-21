@@ -72,7 +72,7 @@ export function DataCard({ metricConfig, value, status }: DataCardProps) {
          <p className="text-xs text-muted-foreground pt-1">
           {label === 'CO₂ Levels' && "Ideal: <1000 ppm"}
           {label === 'CO Levels' && "Ideal: <9 ppm"}
-          {label === 'Temperature' && "Ideal: 23-27 °C"} 
+          {label === 'Temperature' && "Ideal (Dec-Feb): 24-31 °C"} 
           {label === 'Humidity' && "Ideal: 45-65 %"}
         </p>
       </CardContent>
