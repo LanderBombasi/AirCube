@@ -2,16 +2,18 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { AirQualityData, ConnectionStatus, MetricKey } from '@/types/airQuality';
+import type { AirQualityData, ConnectionStatus, MetricKey, HistoricalDataPoint } from '@/types/airQuality';
 import { useToast } from "@/hooks/use-toast";
 import { METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
 import { database } from '@/lib/firebaseConfig';
 import { ref, onValue, off, DatabaseReference } from "firebase/database";
 
-const FIREBASE_DATA_PATH = '/data'; // Updated path
+const FIREBASE_DATA_PATH = '/data';
+const MAX_HISTORY_POINTS = 60; // Number of historical data points to keep
 
 export function useAirQualityData() {
   const [data, setData] = useState<AirQualityData | null>(null);
+  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const { toast } = useToast();
   const dataRef = useRef<DatabaseReference | null>(null);
@@ -34,6 +36,13 @@ export function useAirQualityData() {
     if (snapshot.exists()) {
       const newData = rawData as AirQualityData;
       setData(newData);
+
+      // Update historical data
+      setHistoricalData(prevHistory => {
+        const newPoint = { ...newData, timestamp: Date.now() };
+        const updatedHistory = [...prevHistory, newPoint];
+        return updatedHistory.slice(-MAX_HISTORY_POINTS);
+      });
 
       if (previousDataRef.current) {
         (Object.keys(METRIC_CONFIGS) as MetricKey[]).forEach((key) => {
@@ -62,6 +71,7 @@ export function useAirQualityData() {
       previousDataRef.current = newData;
     } else {
       setData(null);
+      // Do not clear historical data here, so it persists if connection temporarily drops
       if (connectionStatusRef.current === 'connected' && previousDataRef.current !== null) {
         toast({ title: "Data Stream Interrupted", description: `No data currently at ${FIREBASE_DATA_PATH}. ESP32 might have stopped or data was deleted.`, variant: "destructive" });
         console.warn(`[AirQualityData] Data stream interrupted. No data at ${FIREBASE_DATA_PATH}.`);
@@ -77,6 +87,7 @@ export function useAirQualityData() {
     setConnectionStatus('error');
     setData(null);
     previousDataRef.current = null;
+    // Do not clear historical data on error
     
     if (dataRef.current && listenerAttachedRef.current) { 
         console.log("[AirQualityData] Detaching listener due to error for path:", dataRef.current.toString());
@@ -116,9 +127,9 @@ export function useAirQualityData() {
 
       const dataListener = (snapshot: any) => {
         console.log("[AirQualityData] 'onValue' success callback (dataListener) invoked. Snapshot exists:", snapshot.exists());
-        if (!listenerAttachedRef.current) {
+        if (!listenerAttachedRef.current) { // This block now correctly signifies the first successful attachment
           listenerAttachedRef.current = true;
-          setConnectionStatus('connected');
+          setConnectionStatus('connected'); 
           console.log("[AirQualityData] Listener attached, status set to 'connected'.");
           if (snapshot.exists()) {
             toast({ title: "Connected!", description: "Receiving data from AirCube via Firebase.", variant: "default" });
@@ -155,6 +166,8 @@ export function useAirQualityData() {
     setConnectionStatus('disconnected');
     setData(null);
     previousDataRef.current = null;
+    // Optionally clear historical data on explicit disconnect:
+    // setHistoricalData([]);
     console.log("[AirQualityData] Status set to 'disconnected'.");
     toast({ title: "Disconnected", description: "Stopped listening for AirCube data from Firebase." });
   }, [toast]);
@@ -172,5 +185,5 @@ export function useAirQualityData() {
     };
   }, []);
 
-  return { data, connectionStatus, connectDevice, disconnectDevice };
+  return { data, historicalData, connectionStatus, connectDevice, disconnectDevice };
 }

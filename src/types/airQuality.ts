@@ -26,3 +26,7 @@ export interface MetricConfig {
 }
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+
+export interface HistoricalDataPoint extends AirQualityData {
+  timestamp: number;
+}

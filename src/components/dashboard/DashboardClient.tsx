@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState } from 'react';
 import { useAirQualityData } from '@/hooks/useAirQualityData';
 import { DataCard } from './DataCard';
 import { METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
@@ -9,9 +10,19 @@ import { Header } from '@/components/layout/Header';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from '@/components/ui/button';
 import { WifiOff } from 'lucide-react';
+import { MetricHistoryChart } from './MetricHistoryChart';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 export function DashboardClient() {
-  const { data, connectionStatus, connectDevice, disconnectDevice } = useAirQualityData();
+  const { data, historicalData, connectionStatus, connectDevice, disconnectDevice } = useAirQualityData();
+  const [selectedMetricForChart, setSelectedMetricForChart] = useState<MetricKey>('co2');
 
   const metricKeys = Object.keys(METRIC_CONFIGS) as MetricKey[];
 
@@ -49,24 +60,63 @@ export function DashboardClient() {
         onDisconnect={disconnectDevice}
       />
       <main className="flex-grow container mx-auto p-4 md:p-8">
-        {connectionStatus === 'connecting' && (
+        {connectionStatus === 'connecting' && !data && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
             {metricKeys.map((metricKey) => (
               <CardSkeleton key={metricKey} metricId={metricKey} />
             ))}
           </div>
         )}
-        {connectionStatus === 'connected' && data && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-            {metricKeys.map((key) => (
-              <DataCard
-                key={key}
-                metricConfig={METRIC_CONFIGS[key]}
-                value={data[key]}
-                status={getMetricStatus(key, data[key])}
+        {(connectionStatus === 'connected' || (connectionStatus === 'connecting' && data)) && (
+          <>
+            {data ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                {metricKeys.map((key) => (
+                  <DataCard
+                    key={key}
+                    metricConfig={METRIC_CONFIGS[key]}
+                    value={data[key]}
+                    status={getMetricStatus(key, data[key])}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10">
+                <p className="text-muted-foreground text-lg">Waiting for initial data from AirCube...</p>
+                <p className="text-sm text-muted-foreground">Make sure your ESP32 device is powered on and sending data to Firebase.</p>
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-4">
+                    {metricKeys.map((metricKey) => (
+                      <CardSkeleton key={metricKey} metricId={metricKey} />
+                    ))}
+                  </div>
+              </div>
+            )}
+
+            <div className="mt-8">
+              <div className="mb-4">
+                <Label htmlFor="metric-select" className="text-lg font-semibold">View History For:</Label>
+                <Select
+                  value={selectedMetricForChart}
+                  onValueChange={(value) => setSelectedMetricForChart(value as MetricKey)}
+                >
+                  <SelectTrigger id="metric-select" className="w-full md:w-[280px] mt-2">
+                    <SelectValue placeholder="Select a metric" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {metricKeys.map((key) => (
+                      <SelectItem key={key} value={key}>
+                        {METRIC_CONFIGS[key].label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <MetricHistoryChart 
+                historicalData={historicalData}
+                selectedMetric={selectedMetricForChart}
               />
-            ))}
-          </div>
+            </div>
+          </>
         )}
       </main>
       <footer className="text-center p-4 text-sm text-muted-foreground border-t border-border">
