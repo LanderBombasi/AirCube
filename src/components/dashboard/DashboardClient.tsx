@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAirQualityData } from '@/hooks/useAirQualityData';
 import { DataCard } from './DataCard';
 import { METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
@@ -9,8 +9,12 @@ import type { MetricKey } from '@/types/airQuality';
 import { Header } from '@/components/layout/Header';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { WifiOff } from 'lucide-react';
 import { MetricHistoryChart } from './MetricHistoryChart';
+import { FrequencySpectrumChart } from './FrequencySpectrumChart';
+import { calculateDFT } from '@/lib/fourierUtils';
+import type { DFTResult } from '@/lib/fourierUtils';
 import {
   Select,
   SelectContent,
@@ -23,8 +27,39 @@ import { Label } from "@/components/ui/label";
 export function DashboardClient() {
   const { data, historicalData, connectionStatus, connectDevice, disconnectDevice } = useAirQualityData();
   const [selectedMetricForChart, setSelectedMetricForChart] = useState<MetricKey>('co2');
+  const [dftResults, setDftResults] = useState<DFTResult[] | null>(null);
+  const [isCalculatingDFT, setIsCalculatingDFT] = useState<boolean>(false);
 
   const metricKeys = Object.keys(METRIC_CONFIGS) as MetricKey[];
+
+  useEffect(() => {
+    const performDFTCalculation = async () => {
+      if (historicalData && historicalData.length > 1) {
+        setIsCalculatingDFT(true);
+        const metricValues = historicalData.map(point => point[selectedMetricForChart]).filter(val => typeof val === 'number') as number[];
+        
+        if (metricValues.length > 1) {
+          try {
+            const results = await calculateDFT(metricValues);
+            setDftResults(results);
+          } catch (error) {
+            console.error("Error calculating DFT:", error);
+            setDftResults(null);
+          }
+        } else {
+          setDftResults(null);
+        }
+        setIsCalculatingDFT(false);
+      } else {
+        setDftResults(null);
+      }
+    };
+
+    performDFTCalculation();
+  }, [historicalData, selectedMetricForChart]);
+
+  const selectedMetricConfig = useMemo(() => METRIC_CONFIGS[selectedMetricForChart], [selectedMetricForChart]);
+
 
   if (connectionStatus === 'disconnected' || connectionStatus === 'error') {
     return (
@@ -94,7 +129,7 @@ export function DashboardClient() {
 
             <div className="mt-8">
               <div className="mb-4">
-                <Label htmlFor="metric-select" className="text-lg font-semibold">View History For:</Label>
+                <Label htmlFor="metric-select" className="text-lg font-semibold">View History & Spectrum For:</Label>
                 <Select
                   value={selectedMetricForChart}
                   onValueChange={(value) => setSelectedMetricForChart(value as MetricKey)}
@@ -115,6 +150,26 @@ export function DashboardClient() {
                 historicalData={historicalData}
                 selectedMetric={selectedMetricForChart}
               />
+              {dftResults && selectedMetricConfig && (
+                <FrequencySpectrumChart
+                  dftData={dftResults}
+                  metricConfig={selectedMetricConfig}
+                  isLoading={isCalculatingDFT}
+                />
+              )}
+              {!dftResults && !isCalculatingDFT && historicalData && historicalData.length > 1 && selectedMetricConfig && (
+                 <Card className="mt-6 shadow-lg">
+                    <CardHeader>
+                      <CardTitle>Frequency Spectrum: {selectedMetricConfig.label}</CardTitle>
+                      <CardDescription>
+                        Not enough data or error in calculation for frequency spectrum.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
+                      <p>Unable to display spectrum.</p>
+                    </CardContent>
+                  </Card>
+              )}
             </div>
           </>
         )}
@@ -140,3 +195,4 @@ function CardSkeleton({ metricId }: { metricId: string}) {
     </div>
   );
 }
+
