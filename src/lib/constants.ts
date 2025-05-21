@@ -1,6 +1,6 @@
 
 import type { MetricConfig, MetricKey, MetricStatus } from '@/types/airQuality';
-import { Thermometer, Droplets, Atom, FlameKindling } from 'lucide-react'; // Removed TriangleAlert as it's not used directly here
+import { Thermometer, Droplets, Atom, FlameKindling } from 'lucide-react';
 
 export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
   co2: {
@@ -21,17 +21,17 @@ export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
       dangerHigh: 50, // Above 50 is danger, between normalHigh and dangerHigh is warning
     },
   },
-  temp: { // Changed key from 'temperature' to 'temp'
+  temp: {
     label: 'Temperature',
     unit: '°C',
     Icon: Thermometer,
     thresholds: {
-      idealLow: 20,
-      idealHigh: 25,
-      warningLow: 18,
-      warningHigh: 28,
-      dangerLow: 15,
-      dangerHigh: 30,
+      idealLow: 23,    // Philippines: Ideal 23-27°C
+      idealHigh: 27,
+      warningLow: 20,  // Warning if 20-22.9°C or 27.1-30°C
+      warningHigh: 30,
+      dangerLow: 18,   // Danger < 18°C
+      dangerHigh: 32,  // Danger > 32°C
     },
   },
   humidity: {
@@ -39,19 +39,19 @@ export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
     unit: '%',
     Icon: Droplets,
     thresholds: {
-      idealLow: 40,
-      idealHigh: 60,
-      warningLow: 30,
-      warningHigh: 70,
-      dangerLow: 20,
-      dangerHigh: 80,
+      idealLow: 45,    // Philippines: Ideal 45-65%
+      idealHigh: 65,
+      warningLow: 35,  // Warning if 35-44.9% or 65.1-75%
+      warningHigh: 75,
+      dangerLow: 30,   // Danger < 30%
+      dangerHigh: 80,  // Danger > 80%
     },
   },
 };
 
 export const getMetricStatus = (metricKey: MetricKey, value: number): MetricStatus => {
   const config = METRIC_CONFIGS[metricKey];
-  if (typeof value !== 'number' || isNaN(value)) return 'unknown'; // Added check for NaN
+  if (typeof value !== 'number' || isNaN(value)) return 'unknown';
   if (!config) return 'unknown';
 
   const { normalHigh, warningLow, warningHigh, dangerLow, dangerHigh, idealLow, idealHigh } = config.thresholds;
@@ -62,13 +62,15 @@ export const getMetricStatus = (metricKey: MetricKey, value: number): MetricStat
     return 'danger';
   }
 
-  // Changed 'temperature' to 'temp'
   if (metricKey === 'temp' || metricKey === 'humidity') {
+    // Order of checks is important for temp/humidity with distinct danger/warning/ideal ranges
     if (value < dangerLow! || value > dangerHigh!) return 'danger';
-    if (value < warningLow! || value > warningHigh!) return 'warning';
+    if (value < warningLow! || value > warningHigh!) return 'warning'; // Catches values outside ideal but not yet danger
     if (value >= idealLow! && value <= idealHigh!) return 'normal';
-    // If it's not danger and not normal (within ideal), it implies it's in the warning range but outside ideal.
-    // This covers cases like ideal 20-25, warning 18-28. Value 19 is warning. Value 26 is warning.
+    
+    // If it's not danger, not explicitly warning (outside warningLow/High), and not normal (within ideal),
+    // it implies it's in a range between ideal and warning boundaries, which should be warning.
+    // Example: ideal 23-27, warningLow 20, warningHigh 30. Value 22 is warning. Value 28 is warning.
     return 'warning';
   }
   
