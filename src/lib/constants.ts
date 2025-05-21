@@ -26,12 +26,10 @@ export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
     unit: '°C',
     Icon: Thermometer,
     thresholds: {
-      idealLow: 24,    // Philippines (Dec-Feb): Ideal 24-31°C
-      idealHigh: 31,
-      warningLow: 21,  // Warning if 21-23.9°C or 31.1-34°C
-      warningHigh: 34,
-      dangerLow: 20,   // Danger < 21°C (effectively, values below warningLow)
-      dangerHigh: 35,  // Danger > 34°C (effectively, values above warningHigh)
+      // Specific seasonal thresholds will be handled in getMetricStatus
+      // These can be considered fallbacks or defaults if needed, but seasonal logic takes precedence.
+      idealLow: 24, // Generic placeholder
+      idealHigh: 31, // Generic placeholder
     },
   },
   humidity: {
@@ -54,31 +52,39 @@ export const getMetricStatus = (metricKey: MetricKey, value: number): MetricStat
   if (typeof value !== 'number' || isNaN(value)) return 'unknown';
   if (!config) return 'unknown';
 
-  const { normalHigh, warningLow, warningHigh, dangerLow, dangerHigh, idealLow, idealHigh } = config.thresholds;
-
   if (metricKey === 'co2' || metricKey === 'co') {
+    const { normalHigh, dangerHigh } = config.thresholds;
     if (value < normalHigh!) return 'normal';
     if (value < dangerHigh!) return 'warning';
     return 'danger';
   }
 
-  if (metricKey === 'temp' || metricKey === 'humidity') {
-    // Order of checks is important for temp/humidity with distinct danger/warning/ideal ranges
-    if (value < dangerLow! || value > dangerHigh!) return 'danger'; // Catches extremes first
-    if (value < warningLow! || value > warningHigh!) return 'warning'; // Catches values outside ideal but not yet danger
-    if (value >= idealLow! && value <= idealHigh!) return 'normal'; // Values within ideal range
-    
-    // This specific check for 'temp' ensures values between danger and warning are still warning
-    // For example, if dangerLow is 20, warningLow is 21, idealLow is 24:
-    // 19 is danger. 20.5 is danger. 21 is warning. 23.9 is warning. 24 is normal.
-    // This logic holds true if dangerLow/High are set slightly outside warningLow/High
-    // E.g., temp: ideal 24-31, warning 21-23.9 or 31.1-34, danger <21 or >34.
-    // A value of 20.5 would be < dangerLow (if dangerLow = 21 for example, or using effective < warningLow for danger)
-    // Let's refine the condition for danger/warning based on explicit thresholds
-    if (value < idealLow! || value > idealHigh!) return 'warning'; // If not danger, and not normal, it must be warning.
+  if (metricKey === 'humidity') {
+    const { idealLow, idealHigh, warningLow, warningHigh, dangerLow, dangerHigh } = config.thresholds;
+    if (value < dangerLow! || value > dangerHigh!) return 'danger';
+    if (value < warningLow! || value > warningHigh!) return 'warning';
+    if (value >= idealLow! && value <= idealHigh!) return 'normal';
+    return 'warning'; // If not danger, and not normal, it's warning (covers gaps between ideal and warning ranges)
+  }
 
-    // Should not be reached if thresholds are set correctly, but as a fallback
-    return 'unknown'; 
+  if (metricKey === 'temp') {
+    const month = new Date().getMonth(); // 0 = Jan, 1 = Feb, ..., 11 = Dec
+    let currentThresholds: { idealLow: number, idealHigh: number, warningLow: number, warningHigh: number, dangerLow: number, dangerHigh: number };
+
+    if (month === 11 || month === 0 || month === 1) { // Dec, Jan, Feb
+      currentThresholds = { idealLow: 24, idealHigh: 31, warningLow: 21, warningHigh: 34, dangerLow: 20, dangerHigh: 35 };
+    } else if (month >= 2 && month <= 4) { // Mar, Apr, May
+      currentThresholds = { idealLow: 28, idealHigh: 38, warningLow: 25, warningHigh: 41, dangerLow: 24, dangerHigh: 42 };
+    } else { // Jun, Jul, Aug, Sep, Oct, Nov
+      currentThresholds = { idealLow: 27, idealHigh: 34, warningLow: 24, warningHigh: 37, dangerLow: 23, dangerHigh: 38 };
+    }
+
+    const { idealLow, idealHigh, warningLow, warningHigh, dangerLow, dangerHigh } = currentThresholds;
+
+    if (value < dangerLow || value > dangerHigh) return 'danger';
+    if (value < warningLow || value > warningHigh) return 'warning';
+    if (value >= idealLow && value <= idealHigh) return 'normal';
+    return 'warning'; // Default to warning if in gaps between defined ranges but not danger
   }
   
   return 'unknown';

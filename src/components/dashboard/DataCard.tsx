@@ -5,6 +5,7 @@ import type { MetricConfig, MetricStatus } from '@/types/airQuality';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { TriangleAlert } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface DataCardProps {
   metricConfig: MetricConfig;
@@ -14,6 +15,20 @@ interface DataCardProps {
 
 export function DataCard({ metricConfig, value, status }: DataCardProps) {
   const { label, unit, Icon } = metricConfig;
+  const [temperatureHint, setTemperatureHint] = useState('');
+
+  useEffect(() => {
+    if (label === 'Temperature') {
+      const month = new Date().getMonth(); // 0 = Jan, 1 = Feb, ..., 11 = Dec
+      if (month === 11 || month === 0 || month === 1) { // Dec, Jan, Feb
+        setTemperatureHint("Ideal (Dec-Feb): 24-31 °C");
+      } else if (month >= 2 && month <= 4) { // Mar, Apr, May
+        setTemperatureHint("Ideal (Mar-May): 28-38 °C");
+      } else { // Jun, Jul, Aug, Sep, Oct, Nov
+        setTemperatureHint("Ideal (Jun-Nov): 27-34 °C");
+      }
+    }
+  }, [label]);
 
   const cardBorderColor = () => {
     switch (status) {
@@ -72,7 +87,7 @@ export function DataCard({ metricConfig, value, status }: DataCardProps) {
          <p className="text-xs text-muted-foreground pt-1">
           {label === 'CO₂ Levels' && "Ideal: <1000 ppm"}
           {label === 'CO Levels' && "Ideal: <9 ppm"}
-          {label === 'Temperature' && "Ideal (Dec-Feb): 24-31 °C"} 
+          {label === 'Temperature' && temperatureHint}
           {label === 'Humidity' && "Ideal: 45-65 %"}
         </p>
       </CardContent>
