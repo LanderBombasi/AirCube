@@ -16,7 +16,7 @@ export function useAirQualityData() {
   const { toast } = useToast();
   const dataRef = useRef<DatabaseReference | null>(null);
   const previousDataRef = useRef<AirQualityData | null>(null);
-  const listenerAttachedRef = useRef(false); // To track if the listener is active
+  const listenerAttachedRef = useRef(false);
 
   const connectionStatusRef = useRef(connectionStatus);
   useEffect(() => {
@@ -26,7 +26,7 @@ export function useAirQualityData() {
   const handleDataUpdate = useCallback((snapshot: any) => {
     const rawData = snapshot.val();
     console.log(
-      "Firebase snapshot received. Path:", FIREBASE_DATA_PATH,
+      "[AirQualityData] Firebase snapshot received. Path:", snapshot.ref.toString(),
       "Exists:", snapshot.exists(),
       "Raw data:", JSON.stringify(rawData, null, 2)
     );
@@ -41,7 +41,7 @@ export function useAirQualityData() {
           const currentValue = newData[key];
 
           if (typeof currentValue !== 'number') {
-            console.warn(`Metric ${key} is not a number or is undefined. Value:`, currentValue);
+            console.warn(`[AirQualityData] Metric ${key} is not a number or is undefined. Value:`, currentValue);
             return;
           }
 
@@ -63,83 +63,110 @@ export function useAirQualityData() {
     } else {
       setData(null);
       if (connectionStatusRef.current === 'connected' && previousDataRef.current !== null) {
-        // Only show this if we were connected and previously had data
         toast({ title: "Data Stream Interrupted", description: `No data currently at ${FIREBASE_DATA_PATH}. ESP32 might have stopped or data was deleted.`, variant: "destructive" });
+        console.warn(`[AirQualityData] Data stream interrupted. No data at ${FIREBASE_DATA_PATH}.`);
       }
       previousDataRef.current = null;
     }
   }, [toast]);
 
   const handleError = useCallback((error: Error) => {
-    console.error("Firebase data fetch error:", error.message, error);
+    console.error("[AirQualityData] Firebase data fetch error callback triggered. Full error object:", error);
+    console.error("[AirQualityData] Error name:", error.name, "Error message:", error.message, "Stack:", error.stack);
+    
     setConnectionStatus('error');
     setData(null);
     previousDataRef.current = null;
-    listenerAttachedRef.current = false;
-    if (dataRef.current) {
-        // Detach the listener on error if it was set up
+    
+    if (dataRef.current && listenerAttachedRef.current) { // Check if listener was attached before trying to detach
+        console.log("[AirQualityData] Detaching listener due to error for path:", dataRef.current.toString());
         off(dataRef.current);
-        dataRef.current = null;
+    } else {
+        console.log("[AirQualityData] Listener was not attached or dataRef is null, no detachment needed on error.");
     }
+    listenerAttachedRef.current = false; // Ensure it's marked as not attached
+    dataRef.current = null; // Clear the ref
+
     toast({ title: "Firebase Connection Error", description: `Error: ${error.message}. Check console and Firebase rules.`, variant: "destructive" });
   }, [toast]);
 
   const connectDevice = useCallback(() => {
+    console.log("[AirQualityData] connectDevice called. Current status:", connectionStatusRef.current, "Listener attached:", listenerAttachedRef.current);
+
+    if (!database) {
+      console.error("[AirQualityData] Firebase database instance is not available. Check firebaseConfig.ts.");
+      toast({ title: "Configuration Error", description: "Firebase database not initialized.", variant: "destructive" });
+      setConnectionStatus('error');
+      return;
+    }
+
     if (listenerAttachedRef.current || connectionStatusRef.current === 'connecting') {
-      console.log("Connection attempt skipped: listener already attached or currently connecting.");
+      console.log("[AirQualityData] Connection attempt skipped: listener already attached or currently connecting.");
       return;
     }
 
     setConnectionStatus('connecting');
+    console.log(`[AirQualityData] Status set to 'connecting'. Attempting to connect to Firebase for AirCube data at ${FIREBASE_DATA_PATH}.`);
     toast({ title: "Connecting...", description: `Attempting to connect to Firebase for AirCube data at ${FIREBASE_DATA_PATH}.` });
 
     try {
+      console.log("[AirQualityData] Creating Firebase database reference for path:", FIREBASE_DATA_PATH);
       dataRef.current = ref(database, FIREBASE_DATA_PATH);
+      console.log("[AirQualityData] Database reference created:", dataRef.current.toString());
 
       const dataListener = (snapshot: any) => {
-        if (!listenerAttachedRef.current) { // First time this listener runs for this connection attempt
-          listenerAttachedRef.current = true; // Mark listener as active
-          setConnectionStatus('connected'); // Set status to connected
+        console.log("[AirQualityData] 'onValue' success callback (dataListener) invoked. Snapshot exists:", snapshot.exists());
+        if (!listenerAttachedRef.current) {
+          listenerAttachedRef.current = true;
+          setConnectionStatus('connected');
+          console.log("[AirQualityData] Listener attached, status set to 'connected'.");
           if (snapshot.exists()) {
             toast({ title: "Connected!", description: "Receiving data from AirCube via Firebase.", variant: "default" });
+            console.log("[AirQualityData] Successfully connected, data found.");
           } else {
             toast({ title: "Connected to Firebase", description: `Listening to ${FIREBASE_DATA_PATH}, but no data found yet. Waiting for ESP32.`, variant: "default" });
-            console.log(`Firebase listener active for ${FIREBASE_DATA_PATH}, path is currently empty.`);
+            console.log(`[AirQualityData] Firebase listener active for ${FIREBASE_DATA_PATH}, path is currently empty.`);
           }
         }
         handleDataUpdate(snapshot);
       };
-
-      // Pass handleError directly as the error callback for onValue
-      onValue(dataRef.current, dataListener, handleError);
+      
+      console.log("[AirQualityData] Calling 'onValue' to attach listener...");
+      onValue(dataRef.current, dataListener, handleError); // handleError is the direct error callback
+      console.log("[AirQualityData] 'onValue' listener attachment initiated.");
 
     } catch (error: any) {
-      console.error("Error setting up Firebase listener (synchronous):", error);
-      // Ensure handleError is called for synchronous errors during setup too
-      handleError(new Error(error.message || "Failed to initialize Firebase listener"));
+      console.error("[AirQualityData] Synchronous error during 'connectDevice' (e.g., ref creation):", error);
+      // Call handleError to ensure consistent error state management
+      handleError(new Error(error.message || "Failed to initialize Firebase listener during connectDevice"));
     }
   }, [toast, handleDataUpdate, handleError]);
 
 
   const disconnectDevice = useCallback(() => {
+    console.log("[AirQualityData] disconnectDevice called.");
     if (dataRef.current && listenerAttachedRef.current) {
       off(dataRef.current);
-      console.log("Firebase listener detached for path:", dataRef.current.toString());
+      console.log("[AirQualityData] Firebase listener detached for path:", dataRef.current.toString());
+    } else {
+      console.log("[AirQualityData] No active listener to detach or dataRef is null.");
     }
     dataRef.current = null;
     listenerAttachedRef.current = false;
     setConnectionStatus('disconnected');
     setData(null);
     previousDataRef.current = null;
+    console.log("[AirQualityData] Status set to 'disconnected'.");
     toast({ title: "Disconnected", description: "Stopped listening for AirCube data from Firebase." });
   }, [toast]);
 
   useEffect(() => {
-    // Cleanup listener on component unmount
+    console.log("[AirQualityData] Hook mounted.");
     return () => {
+      console.log("[AirQualityData] Hook unmounting. Cleaning up listener.");
       if (dataRef.current && listenerAttachedRef.current) {
         off(dataRef.current);
-        console.log("Firebase listener cleaned up on unmount for path:", dataRef.current.toString());
+        console.log("[AirQualityData] Firebase listener cleaned up on unmount for path:", dataRef.current.toString());
       }
       listenerAttachedRef.current = false;
       dataRef.current = null;
