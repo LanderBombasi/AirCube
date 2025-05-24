@@ -34,7 +34,7 @@ export function DataCard({ metricConfig, value, status }: DataCardProps) {
     } else if (label === 'Humidity') {
       setDynamicHint("Ideal: 45-65 %");
     } else if (label === 'Combustible Gas') {
-      setDynamicHint("Ideal: <300 ppm (example)"); // Added hint for combustible gas
+      setDynamicHint("Ideal: <500 ppm"); // Adjusted hint for combustible gas
     }
   }, [label]);
 
@@ -99,3 +99,4 @@ export function DataCard({ metricConfig, value, status }: DataCardProps) {
     </Card>
   );
 }
+

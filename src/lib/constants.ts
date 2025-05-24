@@ -21,13 +21,13 @@ export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
       dangerHigh: 50, // Above 50 is danger, between normalHigh and dangerHigh is warning
     },
   },
-  combustible: { // Added configuration for Combustible Gas
+  combustible: { 
     label: 'Combustible Gas',
-    unit: 'ppm', // Assuming ppm, adjust if sensor provides %LEL or other units
+    unit: 'ppm', 
     Icon: Flame,
     thresholds: {
-      normalHigh: 300,  // Example: Below 300 ppm is considered normal
-      dangerHigh: 1000, // Example: Above 1000 ppm is danger
+      normalHigh: 500,  // Adjusted: Below 500 ppm is considered normal
+      dangerHigh: 1500, // Adjusted: Above 1500 ppm is danger, 500-1500 is warning
     },
   },
   temp: {
@@ -36,8 +36,8 @@ export const METRIC_CONFIGS: Record<MetricKey, MetricConfig> = {
     Icon: Thermometer,
     thresholds: {
       // Seasonal thresholds are handled dynamically in getMetricStatus
-      idealLow: 24, // Default placeholder, not directly used by seasonal logic
-      idealHigh: 31, // Default placeholder
+      idealLow: 24, 
+      idealHigh: 31, 
     },
   },
   humidity: {
@@ -81,9 +81,9 @@ export const getMetricStatus = (metricKey: MetricKey, value: number): MetricStat
 
     if (month === 11 || month === 0 || month === 1) { // Dec, Jan, Feb
       currentThresholds = { idealLow: 24, idealHigh: 31, warningLow: 21, warningHigh: 34, dangerLow: 20, dangerHigh: 35 };
-    } else if (month >= 2 && month <= 4) { // Mar, Apr, May (Changed June to May for this block)
+    } else if (month >= 2 && month <= 4) { // Mar, Apr, May 
       currentThresholds = { idealLow: 28, idealHigh: 38, warningLow: 25, warningHigh: 41, dangerLow: 24, dangerHigh: 42 };
-    } else { // June - November (Changed to start from June)
+    } else { // June - November 
       currentThresholds = { idealLow: 27, idealHigh: 34, warningLow: 24, warningHigh: 37, dangerLow: 23, dangerHigh: 38 };
     }
 
@@ -97,3 +97,4 @@ export const getMetricStatus = (metricKey: MetricKey, value: number): MetricStat
   
   return 'unknown';
 };
+
