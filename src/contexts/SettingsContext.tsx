@@ -55,8 +55,8 @@ const getInitialCustomThresholds = (): CustomThresholds => {
 };
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
-  const [theme, setThemeState] = useState<Theme>('light'); // Initialized in useEffect
-  const [customThresholds, setCustomThresholds] = useState<CustomThresholds>({}); // Initialized in useEffect
+  const [theme, setThemeState] = useState<Theme>('light');
+  const [customThresholds, setCustomThresholds] = useState<CustomThresholds>({});
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -97,15 +97,17 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         ...(prev[metricKey] || {}),
         [field]: numericValue,
       };
-      // Remove field if value is undefined (empty string)
       if (numericValue === undefined) {
         delete updatedMetricThresholds[field];
       }
       
       const newThresholds = {
         ...prev,
-        [metricKey]: updatedMetricThresholds,
+        [metricKey]: Object.keys(updatedMetricThresholds).length > 0 ? updatedMetricThresholds : undefined,
       };
+      if (!newThresholds[metricKey]) {
+        delete newThresholds[metricKey];
+      }
       localStorage.setItem('customThresholds', JSON.stringify(newThresholds));
       return newThresholds;
     });
@@ -116,42 +118,72 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     setCustomThresholds(prev => {
       let newThresholds;
       if (metricKey) {
-        const {[metricKey]: _, ...rest} = prev; // Remove the specific metric's custom thresholds
+        const {[metricKey]: _, ...rest} = prev; 
         newThresholds = rest;
       } else {
-        newThresholds = {}; // Reset all custom thresholds
+        newThresholds = {}; 
       }
       localStorage.setItem('customThresholds', JSON.stringify(newThresholds));
       return newThresholds;
     });
   }, [isMounted]);
 
+  const getSeasonalTempThresholds = useCallback((): MetricConfig['thresholds'] => {
+    const month = new Date().getMonth(); // 0 (Jan) to 11 (Dec)
+    if (month === 11 || month === 0 || month === 1) { // Dec, Jan, Feb
+      return { idealLow: 24, idealHigh: 31, warningLow: 21, warningHigh: 34, dangerLow: 20, dangerHigh: 35 };
+    } else if (month >= 2 && month <= 4) { // Mar, Apr, May
+      return { idealLow: 28, idealHigh: 38, warningLow: 25, warningHigh: 41, dangerLow: 24, dangerHigh: 42 };
+    } else { // June - November
+      return { idealLow: 27, idealHigh: 34, warningLow: 24, warningHigh: 37, dangerLow: 23, dangerHigh: 38 };
+    }
+  }, []);
+
   const getThresholdsForMetric = useCallback((metricKey: MetricKey): MetricConfig['thresholds'] => {
     if (!isMounted) return DEFAULT_METRIC_CONFIGS[metricKey]?.thresholds || {};
     
-    const custom = customThresholds[metricKey];
-    const defaults = DEFAULT_METRIC_CONFIGS[metricKey]?.thresholds || {};
-    
-    // If custom settings exist for this metric, merge them with defaults.
-    // Custom values will override defaults.
-    if (custom && Object.keys(custom).length > 0) {
-      const merged = { ...defaults };
-      for (const key in custom) {
-        if (Object.prototype.hasOwnProperty.call(custom, key)) {
-          const typedKey = key as keyof CustomThresholdValues;
-          if (custom[typedKey] !== undefined && !isNaN(Number(custom[typedKey]))) {
-            (merged as any)[typedKey] = custom[typedKey];
+    const baseDefaults = DEFAULT_METRIC_CONFIGS[metricKey]?.thresholds || {};
+    const userCustomSettings = customThresholds[metricKey];
+
+    if (metricKey === 'temp') {
+      const hasCustomTempSettings = userCustomSettings && Object.keys(userCustomSettings).some(key => userCustomSettings[key as keyof CustomThresholdValues] !== undefined);
+      if (hasCustomTempSettings) {
+        // Merge user's custom temp settings with base defaults for temp
+        const merged = { ...baseDefaults };
+         for (const key in userCustomSettings) {
+          if (Object.prototype.hasOwnProperty.call(userCustomSettings, key)) {
+            const typedKey = key as keyof CustomThresholdValues;
+            if (userCustomSettings[typedKey] !== undefined && !isNaN(Number(userCustomSettings[typedKey]))) {
+              (merged as any)[typedKey] = userCustomSettings[typedKey];
+            }
           }
         }
+        return merged;
+      } else {
+        // No custom temp settings by user, return seasonal defaults
+        return getSeasonalTempThresholds();
       }
-      return merged;
+    } else {
+      // For metrics other than temperature
+      if (userCustomSettings && Object.keys(userCustomSettings).length > 0) {
+        const merged = { ...baseDefaults };
+        for (const key in userCustomSettings) {
+          if (Object.prototype.hasOwnProperty.call(userCustomSettings, key)) {
+            const typedKey = key as keyof CustomThresholdValues;
+            if (userCustomSettings[typedKey] !== undefined && !isNaN(Number(userCustomSettings[typedKey]))) {
+              (merged as any)[typedKey] = userCustomSettings[typedKey];
+            }
+          }
+        }
+        return merged;
+      }
+      return baseDefaults;
     }
-    return defaults;
-  }, [customThresholds, isMounted]);
+  }, [customThresholds, isMounted, getSeasonalTempThresholds]);
 
 
   if (!isMounted) {
-    return null; // Or a loading spinner, but null is fine for now to prevent hydration mismatch
+    return null; 
   }
 
   return (

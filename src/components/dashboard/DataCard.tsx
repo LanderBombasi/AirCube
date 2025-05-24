@@ -7,30 +7,31 @@ import { cn } from '@/lib/utils';
 import { TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSettings } from '@/contexts/SettingsContext';
-import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS } from '@/lib/constants';
 
 interface DataCardProps {
-  metricConfig: MetricConfig; // This will be the default config
-  metricKey: MetricKey; // Pass metricKey to fetch custom/merged thresholds
+  metricConfig: MetricConfig; 
+  metricKey: MetricKey; 
   value: number | null;
   status: MetricStatus;
 }
 
 export function DataCard({ metricConfig, metricKey, value, status }: DataCardProps) {
   const { label, unit, Icon } = metricConfig;
-  const { getThresholdsForMetric } = useSettings();
+  const { getThresholdsForMetric, customThresholds } = useSettings();
   const [dynamicHint, setDynamicHint] = useState('');
 
   useEffect(() => {
     const activeThresholds = getThresholdsForMetric(metricKey);
-    const customThresholdsForMetric = getThresholdsForMetric(metricKey); // This gets merged (custom or default)
-    const hasCustomTempThresholds = metricKey === 'temp' && (
-        customThresholdsForMetric.idealLow !== undefined ||
-        customThresholdsForMetric.idealHigh !== undefined
-    );
+    
+    // Check if user has set custom *ideal* thresholds for temperature specifically
+    const hasCustomIdealTempThresholds = metricKey === 'temp' && 
+                                         customThresholds.temp && 
+                                         (customThresholds.temp.idealLow !== undefined || 
+                                          customThresholds.temp.idealHigh !== undefined);
 
-    if (metricKey === 'temp' && !hasCustomTempThresholds) {
-      // Use seasonal hints only if no custom temp thresholds are set
+    if (metricKey === 'temp' && !hasCustomIdealTempThresholds) {
+      // Use seasonal hints only if no custom ideal temp thresholds are set.
+      // The activeThresholds.idealLow/High will be the seasonal ones here.
       const month = new Date().getMonth();
       if (month === 11 || month === 0 || month === 1) { // Dec, Jan, Feb
         setDynamicHint(`Ideal (Dec-Feb): ${activeThresholds.idealLow}-${activeThresholds.idealHigh} ${unit}`);
@@ -40,7 +41,7 @@ export function DataCard({ metricConfig, metricKey, value, status }: DataCardPro
         setDynamicHint(`Ideal (Jun-Nov): ${activeThresholds.idealLow}-${activeThresholds.idealHigh} ${unit}`);
       }
     } else if (activeThresholds.idealLow !== undefined && activeThresholds.idealHigh !== undefined) {
-      // For temp with custom, or other metrics with ideal ranges (like humidity)
+      // For temp with custom ideal set, or other metrics with ideal ranges (like humidity)
       setDynamicHint(`Ideal: ${activeThresholds.idealLow}-${activeThresholds.idealHigh} ${unit}`);
     } else if (activeThresholds.normalHigh !== undefined) {
       // For metrics like CO2, CO, Combustible
@@ -48,7 +49,7 @@ export function DataCard({ metricConfig, metricKey, value, status }: DataCardPro
     } else {
       setDynamicHint("Ideal levels vary."); // Fallback
     }
-  }, [label, metricKey, getThresholdsForMetric, unit]);
+  }, [metricKey, getThresholdsForMetric, unit, customThresholds, label]); // Added customThresholds & label to dependency array
 
   const cardBorderColor = () => {
     switch (status) {

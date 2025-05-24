@@ -23,14 +23,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { useSettings } from '@/contexts/SettingsContext'; // Import useSettings
+import { useSettings } from '@/contexts/SettingsContext';
 
 export function DashboardClient() {
   const { data, historicalData, connectionStatus, lastUpdateTime, connectDevice, disconnectDevice } = useAirQualityData();
   const [selectedMetricForChart, setSelectedMetricForChart] = useState<MetricKey>('co2');
   const [dftResults, setDftResults] = useState<DFTResult[] | null>(null);
   const [isCalculatingDFT, setIsCalculatingDFT] = useState<boolean>(false);
-  const { getThresholdsForMetric } = useSettings(); // Get threshold function
+  const { getThresholdsForMetric } = useSettings(); 
 
   const metricKeys = Object.keys(DEFAULT_METRIC_CONFIGS) as MetricKey[];
 
@@ -117,10 +117,10 @@ export function DashboardClient() {
                   return (
                     <DataCard
                       key={key}
-                      metricKey={key} // Pass metricKey
-                      metricConfig={DEFAULT_METRIC_CONFIGS[key]} // Pass default config for labels, units, icons
+                      metricKey={key} 
+                      metricConfig={DEFAULT_METRIC_CONFIGS[key]} 
                       value={data[key]}
-                      status={getMetricStatus(key, data[key], activeThresholds)} // Pass active thresholds
+                      status={getMetricStatus(key, data[key], activeThresholds)}
                     />
                   );
                 })}

@@ -2,12 +2,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { AirQualityData, ConnectionStatus, MetricKey, HistoricalDataPoint, MetricConfig } from '@/types/airQuality';
+import type { AirQualityData, ConnectionStatus, MetricKey, HistoricalDataPoint } from '@/types/airQuality';
 import { useToast } from "@/hooks/use-toast";
 import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
 import { database } from '@/lib/firebaseConfig';
 import { ref, onValue, off, DatabaseReference } from "firebase/database";
-import { useSettings } from '@/contexts/SettingsContext'; // Import useSettings
+import { useSettings } from '@/contexts/SettingsContext';
 
 const FIREBASE_DATA_PATH = '/data';
 const MAX_HISTORY_POINTS = 60;
@@ -22,7 +22,7 @@ export function useAirQualityData() {
   const previousDataRef = useRef<AirQualityData | null>(null);
   const listenerAttachedRef = useRef(false);
 
-  const { getThresholdsForMetric } = useSettings(); // Get threshold function from context
+  const { getThresholdsForMetric } = useSettings(); 
 
   const connectionStatusRef = useRef(connectionStatus);
   useEffect(() => {
@@ -58,12 +58,12 @@ export function useAirQualityData() {
             return;
           }
 
-          const activeThresholds = getThresholdsForMetric(key); // Get current thresholds (custom or default)
+          const activeThresholds = getThresholdsForMetric(key); 
           const previousValue = previousDataRef.current ? previousDataRef.current[key] : null;
           
           const currentStatus = getMetricStatus(key, currentValue, activeThresholds);
           const previousStatus = (typeof previousValue === 'number') 
-            ? getMetricStatus(key, previousValue, activeThresholds) // Use active thresholds for previous status too
+            ? getMetricStatus(key, previousValue, activeThresholds)
             : 'unknown';
 
           if (currentStatus === 'danger' && previousStatus !== 'danger') {
