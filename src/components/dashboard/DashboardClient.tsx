@@ -25,7 +25,7 @@ import {
 import { Label } from "@/components/ui/label";
 
 export function DashboardClient() {
-  const { data, historicalData, connectionStatus, connectDevice, disconnectDevice } = useAirQualityData();
+  const { data, historicalData, connectionStatus, lastUpdateTime, connectDevice, disconnectDevice } = useAirQualityData();
   const [selectedMetricForChart, setSelectedMetricForChart] = useState<MetricKey>('co2');
   const [dftResults, setDftResults] = useState<DFTResult[] | null>(null);
   const [isCalculatingDFT, setIsCalculatingDFT] = useState<boolean>(false);
@@ -67,6 +67,7 @@ export function DashboardClient() {
       <div className="flex flex-col min-h-screen">
         <Header 
           connectionStatus={connectionStatus}
+          lastUpdateTime={lastUpdateTime}
           onConnect={connectDevice}
           onDisconnect={disconnectDevice}
         />
@@ -92,6 +93,7 @@ export function DashboardClient() {
     <div className="flex flex-col min-h-screen bg-background">
       <Header 
         connectionStatus={connectionStatus}
+        lastUpdateTime={lastUpdateTime}
         onConnect={connectDevice}
         onDisconnect={disconnectDevice}
       />

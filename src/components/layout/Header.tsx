@@ -7,6 +7,7 @@ import { Wifi, WifiOff, LoaderCircle, PlugZap, Bluetooth, ServerCrash } from 'lu
 
 interface HeaderProps {
   connectionStatus: ConnectionStatus;
+  lastUpdateTime: number | null;
   onConnect: () => void;
   onDisconnect: () => void;
 }
@@ -25,7 +26,7 @@ const ConnectionIcon = ({ status }: { status: ConnectionStatus }) => {
   }
 };
 
-export function Header({ connectionStatus, onConnect, onDisconnect }: HeaderProps) {
+export function Header({ connectionStatus, lastUpdateTime, onConnect, onDisconnect }: HeaderProps) {
   const canConnect = connectionStatus === 'disconnected' || connectionStatus === 'error';
   const canDisconnect = connectionStatus === 'connected';
 
@@ -47,6 +48,11 @@ export function Header({ connectionStatus, onConnect, onDisconnect }: HeaderProp
           <h1 className="text-2xl font-bold text-primary">AirCube</h1>
         </div>
         <div className="flex items-center gap-3">
+          {lastUpdateTime && connectionStatus === 'connected' && (
+            <div className="text-xs text-muted-foreground hidden md:block">
+              Updated: {new Date(lastUpdateTime).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' })}
+            </div>
+          )}
           <div className="flex items-center gap-2 p-2 rounded-md bg-background">
             <ConnectionIcon status={connectionStatus} />
             <span className="text-sm capitalize text-foreground">{connectionStatus === 'error' ? 'Conn. Error' : connectionStatus}</span>

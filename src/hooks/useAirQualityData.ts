@@ -15,6 +15,7 @@ export function useAirQualityData() {
   const [data, setData] = useState<AirQualityData | null>(null);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null); // Added state for last update time
   const { toast } = useToast();
   const dataRef = useRef<DatabaseReference | null>(null);
   const previousDataRef = useRef<AirQualityData | null>(null);
@@ -36,6 +37,7 @@ export function useAirQualityData() {
     if (snapshot.exists()) {
       const newData = rawData as AirQualityData;
       setData(newData);
+      setLastUpdateTime(Date.now()); // Update timestamp on new data
 
       // Update historical data
       setHistoricalData(prevHistory => {
@@ -71,12 +73,12 @@ export function useAirQualityData() {
       previousDataRef.current = newData;
     } else {
       setData(null);
-      // Do not clear historical data here, so it persists if connection temporarily drops
-      if (connectionStatusRef.current === 'connected' && previousDataRef.current !== null) {
+      // setLastUpdateTime(null); // Optionally clear if no data path exists
+      previousDataRef.current = null;
+      if (connectionStatusRef.current === 'connected' && previousDataRef.current !== null) { // This condition might be too strict if data path becomes empty
         toast({ title: "Data Stream Interrupted", description: `No data currently at ${FIREBASE_DATA_PATH}. ESP32 might have stopped or data was deleted.`, variant: "destructive" });
         console.warn(`[AirQualityData] Data stream interrupted. No data at ${FIREBASE_DATA_PATH}.`);
       }
-      previousDataRef.current = null;
     }
   }, [toast]);
 
@@ -86,8 +88,8 @@ export function useAirQualityData() {
     
     setConnectionStatus('error');
     setData(null);
+    // setLastUpdateTime(null); // Clear last update time on error
     previousDataRef.current = null;
-    // Do not clear historical data on error
     
     if (dataRef.current && listenerAttachedRef.current) { 
         console.log("[AirQualityData] Detaching listener due to error for path:", dataRef.current.toString());
@@ -127,7 +129,7 @@ export function useAirQualityData() {
 
       const dataListener = (snapshot: any) => {
         console.log("[AirQualityData] 'onValue' success callback (dataListener) invoked. Snapshot exists:", snapshot.exists());
-        if (!listenerAttachedRef.current) { // This block now correctly signifies the first successful attachment
+        if (!listenerAttachedRef.current) { 
           listenerAttachedRef.current = true;
           setConnectionStatus('connected'); 
           console.log("[AirQualityData] Listener attached, status set to 'connected'.");
@@ -165,9 +167,8 @@ export function useAirQualityData() {
     listenerAttachedRef.current = false;
     setConnectionStatus('disconnected');
     setData(null);
+    // setLastUpdateTime(null); // Clear last update time on disconnect
     previousDataRef.current = null;
-    // Optionally clear historical data on explicit disconnect:
-    // setHistoricalData([]);
     console.log("[AirQualityData] Status set to 'disconnected'.");
     toast({ title: "Disconnected", description: "Stopped listening for AirCube data from Firebase." });
   }, [toast]);
@@ -185,5 +186,5 @@ export function useAirQualityData() {
     };
   }, []);
 
-  return { data, historicalData, connectionStatus, connectDevice, disconnectDevice };
+  return { data, historicalData, connectionStatus, lastUpdateTime, connectDevice, disconnectDevice };
 }
