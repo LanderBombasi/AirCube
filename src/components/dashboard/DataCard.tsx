@@ -15,18 +15,26 @@ interface DataCardProps {
 
 export function DataCard({ metricConfig, value, status }: DataCardProps) {
   const { label, unit, Icon } = metricConfig;
-  const [temperatureHint, setTemperatureHint] = useState('');
+  const [dynamicHint, setDynamicHint] = useState('');
 
   useEffect(() => {
     if (label === 'Temperature') {
       const month = new Date().getMonth(); // 0 = Jan, 1 = Feb, ..., 11 = Dec
       if (month === 11 || month === 0 || month === 1) { // Dec, Jan, Feb
-        setTemperatureHint("Ideal (Dec-Feb): 24-31 °C");
+        setDynamicHint("Ideal (Dec-Feb): 24-31 °C");
       } else if (month >= 2 && month <= 4) { // Mar, Apr, May
-        setTemperatureHint("Ideal (Mar-May): 28-38 °C");
+        setDynamicHint("Ideal (Mar-May): 28-38 °C");
       } else { // Jun, Jul, Aug, Sep, Oct, Nov
-        setTemperatureHint("Ideal (Jun-Nov): 27-34 °C");
+        setDynamicHint("Ideal (Jun-Nov): 27-34 °C");
       }
+    } else if (label === 'CO₂ Levels') {
+      setDynamicHint("Ideal: <1000 ppm");
+    } else if (label === 'CO Levels') {
+      setDynamicHint("Ideal: <9 ppm");
+    } else if (label === 'Humidity') {
+      setDynamicHint("Ideal: 45-65 %");
+    } else if (label === 'Combustible Gas') {
+      setDynamicHint("Ideal: <300 ppm (example)"); // Added hint for combustible gas
     }
   }, [label]);
 
@@ -85,10 +93,7 @@ export function DataCard({ metricConfig, value, status }: DataCardProps) {
           <div className="text-3xl font-bold text-muted-foreground">-</div>
         )}
          <p className="text-xs text-muted-foreground pt-1">
-          {label === 'CO₂ Levels' && "Ideal: <1000 ppm"}
-          {label === 'CO Levels' && "Ideal: <9 ppm"}
-          {label === 'Temperature' && temperatureHint}
-          {label === 'Humidity' && "Ideal: 45-65 %"}
+          {dynamicHint}
         </p>
       </CardContent>
     </Card>

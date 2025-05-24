@@ -2,7 +2,8 @@
 export type AirQualityData = {
   co2: number;
   co: number;
-  temp: number; // Changed from 'temperature' to 'temp'
+  combustible: number; // Added combustible gas
+  temp: number;
   humidity: number;
 };
 
@@ -15,7 +16,7 @@ export interface MetricConfig {
   unit: string;
   Icon: React.ElementType;
   thresholds: {
-    normalHigh?: number; // For CO, CO2: below this is normal
+    normalHigh?: number; // For CO, CO2, Combustible: below this is normal
     warningLow?: number; // For Temp, Humidity: below this is warning
     warningHigh?: number; // For Temp, Humidity: above this is warning
     dangerLow?: number; // Below this is danger

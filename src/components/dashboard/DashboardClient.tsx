@@ -30,6 +30,7 @@ export function DashboardClient() {
   const [dftResults, setDftResults] = useState<DFTResult[] | null>(null);
   const [isCalculatingDFT, setIsCalculatingDFT] = useState<boolean>(false);
 
+  // Ensure 'combustible' is included in metricKeys
   const metricKeys = Object.keys(METRIC_CONFIGS) as MetricKey[];
 
   useEffect(() => {
@@ -96,16 +97,16 @@ export function DashboardClient() {
       />
       <main className="flex-grow container mx-auto p-4 md:p-8">
         {connectionStatus === 'connecting' && !data && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"> {/* Adjusted for 5 items */}
             {metricKeys.map((metricKey) => (
-              <CardSkeleton key={metricKey} metricId={metricKey} />
+              <CardSkeleton key={metricKey} metricId={metricKey as string} />
             ))}
           </div>
         )}
         {(connectionStatus === 'connected' || (connectionStatus === 'connecting' && data)) && (
           <>
             {data ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"> {/* Adjusted for 5 items */}
                 {metricKeys.map((key) => (
                   <DataCard
                     key={key}
@@ -119,9 +120,9 @@ export function DashboardClient() {
               <div className="text-center py-10">
                 <p className="text-muted-foreground text-lg">Waiting for initial data from AirCube...</p>
                 <p className="text-sm text-muted-foreground">Make sure your ESP32 device is powered on and sending data to Firebase.</p>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mt-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 mt-4"> {/* Adjusted for 5 items */}
                     {metricKeys.map((metricKey) => (
-                      <CardSkeleton key={metricKey} metricId={metricKey} />
+                      <CardSkeleton key={metricKey} metricId={metricKey as string} />
                     ))}
                   </div>
               </div>
@@ -195,4 +196,3 @@ function CardSkeleton({ metricId }: { metricId: string}) {
     </div>
   );
 }
-
