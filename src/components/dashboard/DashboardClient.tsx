@@ -5,12 +5,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAirQualityData } from '@/hooks/useAirQualityData';
 import { DataCard } from './DataCard';
 import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
-import type { MetricKey } from '@/types/airQuality';
+import type { MetricKey, MetricConfig, HistoricalDataPoint } from '@/types/airQuality';
 import { Header } from '@/components/layout/Header';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { WifiOff } from 'lucide-react';
+import { WifiOff, Brain } from 'lucide-react';
 import { MetricHistoryChart } from './MetricHistoryChart';
 import { FrequencySpectrumChart } from './FrequencySpectrumChart';
 import { calculateDFT } from '@/lib/fourierUtils';
@@ -24,6 +24,19 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useSettings } from '@/contexts/SettingsContext';
+import { getAirQualitySummary, type AirQualitySummaryInput, type AirQualitySummaryOutput } from '@/ai/flows/summarizeAirQualityFlow';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ScrollArea } from '../ui/scroll-area';
+
 
 export function DashboardClient() {
   const { data, historicalData, connectionStatus, lastUpdateTime, connectDevice, disconnectDevice } = useAirQualityData();
@@ -31,6 +44,11 @@ export function DashboardClient() {
   const [dftResults, setDftResults] = useState<DFTResult[] | null>(null);
   const [isCalculatingDFT, setIsCalculatingDFT] = useState<boolean>(false);
   const { getThresholdsForMetric } = useSettings(); 
+
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [showSummaryDialog, setShowSummaryDialog] = useState<boolean>(false);
 
   const metricKeys = Object.keys(DEFAULT_METRIC_CONFIGS) as MetricKey[];
 
@@ -63,6 +81,62 @@ export function DashboardClient() {
   const selectedMetricConfig = useMemo(() => {
     return DEFAULT_METRIC_CONFIGS[selectedMetricForChart];
   }, [selectedMetricForChart]);
+
+  const formatThresholdForAI = (metricKey: MetricKey, thresholds: MetricConfig['thresholds']): string => {
+    const config = DEFAULT_METRIC_CONFIGS[metricKey];
+    let parts: string[] = [`${config.label} (${config.unit})`];
+
+    if (metricKey === 'co2' || metricKey === 'co' || metricKey === 'combustible') {
+        parts.push(`Normal: <${thresholds.normalHigh}, Danger: >${thresholds.dangerHigh}`);
+    } else if (metricKey === 'temp' || metricKey === 'humidity') {
+        parts.push(`Ideal: ${thresholds.idealLow}-${thresholds.idealHigh}`);
+        parts.push(`Warning: <${thresholds.warningLow} or >${thresholds.warningHigh}`);
+        parts.push(`Danger: <${thresholds.dangerLow} or >${thresholds.dangerHigh}`);
+    }
+    return parts.join('; ') + '.';
+  };
+
+
+  const handleGenerateSummary = async () => {
+    if (!historicalData || historicalData.length === 0) {
+      setSummaryError("Not enough historical data to generate a summary.");
+      setAiSummary(null);
+      setShowSummaryDialog(true);
+      return;
+    }
+    setIsGeneratingSummary(true);
+    setSummaryError(null);
+    setAiSummary(null);
+
+    try {
+      const metricsConfiguration: Partial<Record<MetricKey, string>> = {};
+      for (const key of metricKeys) {
+        const thresholds = getThresholdsForMetric(key);
+        metricsConfiguration[key] = formatThresholdForAI(key, thresholds);
+      }
+      
+      const input: AirQualitySummaryInput = {
+        historicalReadings: historicalData.map(p => ({ // Ensure structure matches schema
+          timestamp: p.timestamp,
+          co2: p.co2 ?? null,
+          co: p.co ?? null,
+          combustible: p.combustible ?? null,
+          temp: p.temp ?? null,
+          humidity: p.humidity ?? null,
+        })),
+        timePeriodDescription: `the last ${historicalData.length} readings (approx. ${historicalData.length} minutes if 1 reading/min)`,
+        metricsConfiguration: metricsConfiguration as Record<MetricKey, string>, // Cast as it's fully populated
+      };
+      const result: AirQualitySummaryOutput = await getAirQualitySummary(input);
+      setAiSummary(result.summary);
+    } catch (error) {
+      console.error("Error generating AI summary:", error);
+      setSummaryError(error instanceof Error ? error.message : "An unknown error occurred while generating the summary.");
+    } finally {
+      setIsGeneratingSummary(false);
+      setShowSummaryDialog(true);
+    }
+  };
 
 
   if (connectionStatus === 'disconnected' || connectionStatus === 'error') {
@@ -137,6 +211,18 @@ export function DashboardClient() {
               </div>
             )}
 
+            <div className="mt-8 mb-6">
+              <Button 
+                onClick={handleGenerateSummary} 
+                disabled={isGeneratingSummary || !historicalData || historicalData.length === 0}
+                variant="outline"
+                size="lg"
+              >
+                <Brain className="mr-2 h-5 w-5" />
+                {isGeneratingSummary ? "Generating Summary..." : "Get AI Air Quality Summary"}
+              </Button>
+            </div>
+
             <div className="mt-8">
               <div className="mb-4">
                 <Label htmlFor="metric-select" className="text-lg font-semibold">View History & Spectrum For:</Label>
@@ -184,6 +270,28 @@ export function DashboardClient() {
           </>
         )}
       </main>
+
+      <AlertDialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
+        <AlertDialogContent className="max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>AI Air Quality Summary</AlertDialogTitle>
+            <AlertDialogDescription>
+              {isGeneratingSummary && "Generating your air quality summary, please wait..."}
+              {summaryError && `Error: ${summaryError}`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {aiSummary && !isGeneratingSummary && (
+            <ScrollArea className="max-h-[400px] pr-4">
+                 <p className="text-sm whitespace-pre-wrap">{aiSummary}</p>
+            </ScrollArea>
+           
+          )}
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowSummaryDialog(false)}>Close</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <footer className="text-center p-4 text-sm text-muted-foreground border-t border-border">
         AirCube &copy; {new Date().getFullYear()} - Air Quality Monitoring.
       </footer>
@@ -205,3 +313,4 @@ function CardSkeleton({ metricId }: { metricId: string}) {
     </div>
   );
 }
+
