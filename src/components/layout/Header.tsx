@@ -3,7 +3,8 @@
 
 import type { ConnectionStatus } from '@/types/airQuality';
 import { Button } from '@/components/ui/button';
-import { Wifi, WifiOff, LoaderCircle, PlugZap, Bluetooth, ServerCrash } from 'lucide-react'; // Added ServerCrash
+import { Wifi, WifiOff, LoaderCircle, PlugZap, Bluetooth, ServerCrash, Cog } from 'lucide-react';
+import { SettingsDialog } from '@/components/settings/SettingsDialog';
 
 interface HeaderProps {
   connectionStatus: ConnectionStatus;
@@ -19,7 +20,7 @@ const ConnectionIcon = ({ status }: { status: ConnectionStatus }) => {
     case 'connecting':
       return <LoaderCircle className="h-5 w-5 animate-spin text-primary" />;
     case 'error':
-      return <ServerCrash className="h-5 w-5 text-destructive" />; // Using ServerCrash for ESP32 connection error
+      return <ServerCrash className="h-5 w-5 text-destructive" />;
     case 'disconnected':
     default:
       return <WifiOff className="h-5 w-5 text-muted-foreground" />;
@@ -67,6 +68,7 @@ export function Header({ connectionStatus, lastUpdateTime, onConnect, onDisconne
               <PlugZap className="mr-2 h-4 w-4" /> Disconnect
             </Button>
           )}
+          <SettingsDialog />
         </div>
       </div>
     </header>

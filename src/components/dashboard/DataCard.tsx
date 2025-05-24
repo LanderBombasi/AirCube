@@ -1,42 +1,54 @@
 
 "use client";
 
-import type { MetricConfig, MetricStatus } from '@/types/airQuality';
+import type { MetricConfig, MetricStatus, MetricKey } from '@/types/airQuality';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useSettings } from '@/contexts/SettingsContext';
+import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS } from '@/lib/constants';
 
 interface DataCardProps {
-  metricConfig: MetricConfig;
+  metricConfig: MetricConfig; // This will be the default config
+  metricKey: MetricKey; // Pass metricKey to fetch custom/merged thresholds
   value: number | null;
   status: MetricStatus;
 }
 
-export function DataCard({ metricConfig, value, status }: DataCardProps) {
+export function DataCard({ metricConfig, metricKey, value, status }: DataCardProps) {
   const { label, unit, Icon } = metricConfig;
+  const { getThresholdsForMetric } = useSettings();
   const [dynamicHint, setDynamicHint] = useState('');
 
   useEffect(() => {
-    if (label === 'Temperature') {
-      const month = new Date().getMonth(); // 0 = Jan, 1 = Feb, ..., 11 = Dec
+    const activeThresholds = getThresholdsForMetric(metricKey);
+    const customThresholdsForMetric = getThresholdsForMetric(metricKey); // This gets merged (custom or default)
+    const hasCustomTempThresholds = metricKey === 'temp' && (
+        customThresholdsForMetric.idealLow !== undefined ||
+        customThresholdsForMetric.idealHigh !== undefined
+    );
+
+    if (metricKey === 'temp' && !hasCustomTempThresholds) {
+      // Use seasonal hints only if no custom temp thresholds are set
+      const month = new Date().getMonth();
       if (month === 11 || month === 0 || month === 1) { // Dec, Jan, Feb
-        setDynamicHint("Ideal (Dec-Feb): 24-31 °C");
+        setDynamicHint(`Ideal (Dec-Feb): ${activeThresholds.idealLow}-${activeThresholds.idealHigh} ${unit}`);
       } else if (month >= 2 && month <= 4) { // Mar, Apr, May
-        setDynamicHint("Ideal (Mar-May): 28-38 °C");
+        setDynamicHint(`Ideal (Mar-May): ${activeThresholds.idealLow}-${activeThresholds.idealHigh} ${unit}`);
       } else { // Jun, Jul, Aug, Sep, Oct, Nov
-        setDynamicHint("Ideal (Jun-Nov): 27-34 °C");
+        setDynamicHint(`Ideal (Jun-Nov): ${activeThresholds.idealLow}-${activeThresholds.idealHigh} ${unit}`);
       }
-    } else if (label === 'CO₂ Levels') {
-      setDynamicHint("Ideal: <1000 ppm");
-    } else if (label === 'CO Levels') {
-      setDynamicHint("Ideal: <9 ppm");
-    } else if (label === 'Humidity') {
-      setDynamicHint("Ideal: 45-65 %");
-    } else if (label === 'Combustible Gas') {
-      setDynamicHint("Ideal: <500 ppm"); // Adjusted hint for combustible gas
+    } else if (activeThresholds.idealLow !== undefined && activeThresholds.idealHigh !== undefined) {
+      // For temp with custom, or other metrics with ideal ranges (like humidity)
+      setDynamicHint(`Ideal: ${activeThresholds.idealLow}-${activeThresholds.idealHigh} ${unit}`);
+    } else if (activeThresholds.normalHigh !== undefined) {
+      // For metrics like CO2, CO, Combustible
+      setDynamicHint(`Ideal: <${activeThresholds.normalHigh} ${unit}`);
+    } else {
+      setDynamicHint("Ideal levels vary."); // Fallback
     }
-  }, [label]);
+  }, [label, metricKey, getThresholdsForMetric, unit]);
 
   const cardBorderColor = () => {
     switch (status) {
@@ -75,7 +87,7 @@ export function DataCard({ metricConfig, value, status }: DataCardProps) {
       <CardContent>
         {value !== null && typeof value === 'number' ? (
           <>
-            <div className={cn("text-3xl font-bold text-accent", valueColor())}>
+            <div className={cn("text-3xl font-bold", valueColor())}>
               {value.toLocaleString(undefined, { maximumFractionDigits: 1 })}
               <span className="text-xl font-normal text-muted-foreground ml-1">{unit}</span>
             </div>
@@ -99,4 +111,3 @@ export function DataCard({ metricConfig, value, status }: DataCardProps) {
     </Card>
   );
 }
-

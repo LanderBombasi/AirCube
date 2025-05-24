@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useAirQualityData } from '@/hooks/useAirQualityData';
 import { DataCard } from './DataCard';
-import { METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
+import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
 import type { MetricKey } from '@/types/airQuality';
 import { Header } from '@/components/layout/Header';
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,15 +23,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { useSettings } from '@/contexts/SettingsContext'; // Import useSettings
 
 export function DashboardClient() {
   const { data, historicalData, connectionStatus, lastUpdateTime, connectDevice, disconnectDevice } = useAirQualityData();
   const [selectedMetricForChart, setSelectedMetricForChart] = useState<MetricKey>('co2');
   const [dftResults, setDftResults] = useState<DFTResult[] | null>(null);
   const [isCalculatingDFT, setIsCalculatingDFT] = useState<boolean>(false);
+  const { getThresholdsForMetric } = useSettings(); // Get threshold function
 
-  // Ensure 'combustible' is included in metricKeys
-  const metricKeys = Object.keys(METRIC_CONFIGS) as MetricKey[];
+  const metricKeys = Object.keys(DEFAULT_METRIC_CONFIGS) as MetricKey[];
 
   useEffect(() => {
     const performDFTCalculation = async () => {
@@ -59,7 +60,9 @@ export function DashboardClient() {
     performDFTCalculation();
   }, [historicalData, selectedMetricForChart]);
 
-  const selectedMetricConfig = useMemo(() => METRIC_CONFIGS[selectedMetricForChart], [selectedMetricForChart]);
+  const selectedMetricConfig = useMemo(() => {
+    return DEFAULT_METRIC_CONFIGS[selectedMetricForChart];
+  }, [selectedMetricForChart]);
 
 
   if (connectionStatus === 'disconnected' || connectionStatus === 'error') {
@@ -99,32 +102,36 @@ export function DashboardClient() {
       />
       <main className="flex-grow container mx-auto p-4 md:p-8">
         {connectionStatus === 'connecting' && !data && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"> {/* Adjusted for 5 items */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
             {metricKeys.map((metricKey) => (
-              <CardSkeleton key={metricKey} metricId={metricKey as string} />
+              <CardSkeleton key={metricKey} metricId={metricKey} />
             ))}
           </div>
         )}
         {(connectionStatus === 'connected' || (connectionStatus === 'connecting' && data)) && (
           <>
             {data ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"> {/* Adjusted for 5 items */}
-                {metricKeys.map((key) => (
-                  <DataCard
-                    key={key}
-                    metricConfig={METRIC_CONFIGS[key]}
-                    value={data[key]}
-                    status={getMetricStatus(key, data[key])}
-                  />
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+                {metricKeys.map((key) => {
+                  const activeThresholds = getThresholdsForMetric(key);
+                  return (
+                    <DataCard
+                      key={key}
+                      metricKey={key} // Pass metricKey
+                      metricConfig={DEFAULT_METRIC_CONFIGS[key]} // Pass default config for labels, units, icons
+                      value={data[key]}
+                      status={getMetricStatus(key, data[key], activeThresholds)} // Pass active thresholds
+                    />
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-10">
                 <p className="text-muted-foreground text-lg">Waiting for initial data from AirCube...</p>
                 <p className="text-sm text-muted-foreground">Make sure your ESP32 device is powered on and sending data to Firebase.</p>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 mt-4"> {/* Adjusted for 5 items */}
+                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 mt-4">
                     {metricKeys.map((metricKey) => (
-                      <CardSkeleton key={metricKey} metricId={metricKey as string} />
+                      <CardSkeleton key={metricKey} metricId={metricKey} />
                     ))}
                   </div>
               </div>
@@ -143,7 +150,7 @@ export function DashboardClient() {
                   <SelectContent>
                     {metricKeys.map((key) => (
                       <SelectItem key={key} value={key}>
-                        {METRIC_CONFIGS[key].label}
+                        {DEFAULT_METRIC_CONFIGS[key].label}
                       </SelectItem>
                     ))}
                   </SelectContent>

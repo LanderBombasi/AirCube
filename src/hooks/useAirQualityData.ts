@@ -2,24 +2,27 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { AirQualityData, ConnectionStatus, MetricKey, HistoricalDataPoint } from '@/types/airQuality';
+import type { AirQualityData, ConnectionStatus, MetricKey, HistoricalDataPoint, MetricConfig } from '@/types/airQuality';
 import { useToast } from "@/hooks/use-toast";
-import { METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
+import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
 import { database } from '@/lib/firebaseConfig';
 import { ref, onValue, off, DatabaseReference } from "firebase/database";
+import { useSettings } from '@/contexts/SettingsContext'; // Import useSettings
 
 const FIREBASE_DATA_PATH = '/data';
-const MAX_HISTORY_POINTS = 60; // Number of historical data points to keep
+const MAX_HISTORY_POINTS = 60;
 
 export function useAirQualityData() {
   const [data, setData] = useState<AirQualityData | null>(null);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
-  const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null); // Added state for last update time
+  const [lastUpdateTime, setLastUpdateTime] = useState<number | null>(null);
   const { toast } = useToast();
   const dataRef = useRef<DatabaseReference | null>(null);
   const previousDataRef = useRef<AirQualityData | null>(null);
   const listenerAttachedRef = useRef(false);
+
+  const { getThresholdsForMetric } = useSettings(); // Get threshold function from context
 
   const connectionStatusRef = useRef(connectionStatus);
   useEffect(() => {
@@ -37,9 +40,8 @@ export function useAirQualityData() {
     if (snapshot.exists()) {
       const newData = rawData as AirQualityData;
       setData(newData);
-      setLastUpdateTime(Date.now()); // Update timestamp on new data
+      setLastUpdateTime(Date.now());
 
-      // Update historical data
       setHistoricalData(prevHistory => {
         const newPoint = { ...newData, timestamp: Date.now() };
         const updatedHistory = [...prevHistory, newPoint];
@@ -47,18 +49,22 @@ export function useAirQualityData() {
       });
 
       if (previousDataRef.current) {
-        (Object.keys(METRIC_CONFIGS) as MetricKey[]).forEach((key) => {
-          const metricConfig = METRIC_CONFIGS[key];
+        (Object.keys(DEFAULT_METRIC_CONFIGS) as MetricKey[]).forEach((key) => {
+          const metricConfig = DEFAULT_METRIC_CONFIGS[key];
           const currentValue = newData[key];
-
+          
           if (typeof currentValue !== 'number') {
             console.warn(`[AirQualityData] Metric ${key} is not a number or is undefined. Value:`, currentValue);
             return;
           }
 
+          const activeThresholds = getThresholdsForMetric(key); // Get current thresholds (custom or default)
           const previousValue = previousDataRef.current ? previousDataRef.current[key] : null;
-          const currentStatus = getMetricStatus(key, currentValue);
-          const previousStatus = (typeof previousValue === 'number') ? getMetricStatus(key, previousValue) : 'unknown';
+          
+          const currentStatus = getMetricStatus(key, currentValue, activeThresholds);
+          const previousStatus = (typeof previousValue === 'number') 
+            ? getMetricStatus(key, previousValue, activeThresholds) // Use active thresholds for previous status too
+            : 'unknown';
 
           if (currentStatus === 'danger' && previousStatus !== 'danger') {
             toast({
@@ -73,14 +79,13 @@ export function useAirQualityData() {
       previousDataRef.current = newData;
     } else {
       setData(null);
-      // setLastUpdateTime(null); // Optionally clear if no data path exists
       previousDataRef.current = null;
-      if (connectionStatusRef.current === 'connected' && previousDataRef.current !== null) { // This condition might be too strict if data path becomes empty
+      if (connectionStatusRef.current === 'connected' && previousDataRef.current !== null) {
         toast({ title: "Data Stream Interrupted", description: `No data currently at ${FIREBASE_DATA_PATH}. ESP32 might have stopped or data was deleted.`, variant: "destructive" });
         console.warn(`[AirQualityData] Data stream interrupted. No data at ${FIREBASE_DATA_PATH}.`);
       }
     }
-  }, [toast]);
+  }, [toast, getThresholdsForMetric]);
 
   const handleError = useCallback((error: Error) => {
     console.error("[AirQualityData] Firebase data fetch error callback triggered. Full error object:", error);
@@ -88,7 +93,6 @@ export function useAirQualityData() {
     
     setConnectionStatus('error');
     setData(null);
-    // setLastUpdateTime(null); // Clear last update time on error
     previousDataRef.current = null;
     
     if (dataRef.current && listenerAttachedRef.current) { 
@@ -167,7 +171,6 @@ export function useAirQualityData() {
     listenerAttachedRef.current = false;
     setConnectionStatus('disconnected');
     setData(null);
-    // setLastUpdateTime(null); // Clear last update time on disconnect
     previousDataRef.current = null;
     console.log("[AirQualityData] Status set to 'disconnected'.");
     toast({ title: "Disconnected", description: "Stopped listening for AirCube data from Firebase." });
