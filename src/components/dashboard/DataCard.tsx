@@ -8,6 +8,11 @@ import { TriangleAlert, Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSettings } from '@/contexts/SettingsContext';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface DataCardProps {
   metricConfig: MetricConfig;
@@ -77,7 +82,7 @@ export function DataCard({ metricConfig, metricKey, value, status, onShowInfo }:
   const isCritical = status === 'warning' || status === 'danger';
 
   return (
-    <Card className={cn("shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105", cardBorderColor(), 'border-2')}>
+    <Card className={cn("shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl", cardBorderColor(), 'border-2')}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center gap-2">
           <Icon className={cn("h-5 w-5", value === null ? "text-muted-foreground" : isCritical ? valueColor() : "text-primary" )} />
@@ -96,13 +101,27 @@ export function DataCard({ metricConfig, metricKey, value, status, onShowInfo }:
               <span className="text-xl font-normal text-muted-foreground ml-1">{unit}</span>
             </div>
             {isCritical && (
-              <p className={cn("text-xs mt-1 flex items-center", valueColor())}>
-                <TriangleAlert className="h-4 w-4 mr-1" />
-                {status === 'warning' ? 'Caution advised' : 'Critical level'}
-              </p>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className={cn("text-xs mt-1 flex items-center cursor-default", valueColor())}>
+                    <TriangleAlert className="h-4 w-4 mr-1" />
+                    {status === 'warning' ? 'Caution advised' : 'Critical level'}
+                  </p>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{status === 'warning' ? 'Metric is in the warning range.' : 'Metric is in the danger range.'}</p>
+                </TooltipContent>
+              </Tooltip>
             )}
             {status === 'normal' && (
-                 <p className="text-xs text-green-500 mt-1">Levels are normal</p>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="text-xs text-green-500 mt-1 cursor-default">Levels are normal</p>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Metric is within the normal range.</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </>
         ) : (

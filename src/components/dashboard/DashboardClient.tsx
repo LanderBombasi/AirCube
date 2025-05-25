@@ -36,6 +36,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '../ui/scroll-area';
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 
 interface MetricInfoRecommendations {
@@ -149,7 +150,6 @@ export function DashboardClient() {
         
         if (metricValues.length > 1) {
           try {
-            // Ensure calculateDFT is awaited if it's async
             const results = await calculateDFT(metricValues);
             setDftResults(results);
           } catch (error) {
@@ -258,171 +258,187 @@ export function DashboardClient() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Header 
-        connectionStatus={connectionStatus}
-        lastUpdateTime={lastUpdateTime}
-        onConnect={connectDevice}
-        onDisconnect={disconnectDevice}
-      />
-      <main className="flex-grow container mx-auto p-4 md:p-8">
-        {connectionStatus === 'connecting' && !data && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            {metricKeys.map((metricKey) => (
-              <CardSkeleton key={metricKey} metricId={metricKey} />
-            ))}
-          </div>
-        )}
-        {(connectionStatus === 'connected' || (connectionStatus === 'connecting' && data)) && (
-          <>
-            {data ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-                {metricKeys.map((key) => {
-                  const activeThresholds = getThresholdsForMetric(key as MetricKey);
-                  return (
-                    <DataCard
-                      key={key}
-                      metricKey={key as MetricKey} 
-                      metricConfig={DEFAULT_METRIC_CONFIGS[key as MetricKey]} 
-                      value={data[key as MetricKey]}
-                      status={getMetricStatus(key as MetricKey, data[key as MetricKey], activeThresholds)}
-                      onShowInfo={handleShowInfo}
-                    />
-                  );
-                })}
+    <TooltipProvider>
+      <div className="flex flex-col min-h-screen bg-background">
+        <Header 
+          connectionStatus={connectionStatus}
+          lastUpdateTime={lastUpdateTime}
+          onConnect={connectDevice}
+          onDisconnect={disconnectDevice}
+        />
+        <main className="flex-grow container mx-auto p-4 md:p-8">
+          {connectionStatus === 'connecting' && !data && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+              {metricKeys.map((metricKey) => (
+                <CardSkeleton key={metricKey} metricId={metricKey} />
+              ))}
+            </div>
+          )}
+          {(connectionStatus === 'connected' || (connectionStatus === 'connecting' && data)) && (
+            <>
+              {data ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+                  {metricKeys.map((key) => {
+                    const activeThresholds = getThresholdsForMetric(key as MetricKey);
+                    return (
+                      <DataCard
+                        key={key}
+                        metricKey={key as MetricKey} 
+                        metricConfig={DEFAULT_METRIC_CONFIGS[key as MetricKey]} 
+                        value={data[key as MetricKey]}
+                        status={getMetricStatus(key as MetricKey, data[key as MetricKey], activeThresholds)}
+                        onShowInfo={handleShowInfo}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-muted-foreground text-lg">Waiting for initial data from AirCube...</p>
+                  <p className="text-sm text-muted-foreground">Make sure your ESP32 device is powered on and sending data to Firebase.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 mt-4">
+                      {metricKeys.map((metricKey) => (
+                        <CardSkeleton key={metricKey} metricId={metricKey} />
+                      ))}
+                    </div>
+                </div>
+              )}
+
+              <div className="mt-8 mb-6">
+                <Button 
+                  onClick={handleGenerateSummary} 
+                  disabled={isGeneratingSummary || !historicalData || historicalData.length === 0}
+                  variant="outline"
+                  size="lg"
+                >
+                  <Brain className="mr-2 h-5 w-5" />
+                  {isGeneratingSummary ? "Generating Summary..." : "Get AI Air Quality Summary"}
+                </Button>
               </div>
-            ) : (
-              <div className="text-center py-10">
-                <p className="text-muted-foreground text-lg">Waiting for initial data from AirCube...</p>
-                <p className="text-sm text-muted-foreground">Make sure your ESP32 device is powered on and sending data to Firebase.</p>
-                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 mt-4">
-                    {metricKeys.map((metricKey) => (
-                      <CardSkeleton key={metricKey} metricId={metricKey} />
-                    ))}
-                  </div>
+
+              <div className="mt-8">
+                <div className="mb-4">
+                  <Label htmlFor="metric-select" className="text-lg font-semibold">View History & Spectrum For:</Label>
+                  <Select
+                    value={selectedMetricForChart}
+                    onValueChange={(value) => setSelectedMetricForChart(value as MetricKey)}
+                  >
+                    <SelectTrigger id="metric-select" className="w-full md:w-[280px] mt-2">
+                      <SelectValue placeholder="Select a metric" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {metricKeys.map((key) => (
+                        <SelectItem key={key} value={key}>
+                          {DEFAULT_METRIC_CONFIGS[key as MetricKey].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <MetricHistoryChart 
+                  historicalData={historicalData}
+                  selectedMetric={selectedMetricForChart}
+                />
+                {dftResults && selectedMetricConfig && (
+                  <FrequencySpectrumChart
+                    dftData={dftResults}
+                    metricConfig={selectedMetricConfig}
+                    isLoading={isCalculatingDFT}
+                  />
+                )}
+                {!dftResults && !isCalculatingDFT && historicalData && historicalData.length > 1 && selectedMetricConfig && (
+                  <Card className="mt-6 shadow-lg">
+                      <CardHeader>
+                        <CardTitle>Frequency Spectrum: {selectedMetricConfig.label}</CardTitle>
+                        <CardDescription>
+                          Not enough data or error in calculation for frequency spectrum.
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
+                        <p>Unable to display spectrum.</p>
+                      </CardContent>
+                    </Card>
+                )}
+              </div>
+            </>
+          )}
+        </main>
+
+        <AlertDialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
+          <AlertDialogContent className="max-w-lg">
+            <AlertDialogHeader>
+              <AlertDialogTitle>AI Air Quality Summary</AlertDialogTitle>
+              {isGeneratingSummary && !aiSummary && (
+                <AlertDialogDescription>
+                  Generating your air quality summary, please wait...
+                </AlertDialogDescription>
+              )}
+              {summaryError && (
+                <AlertDialogDescription>
+                  Error: {summaryError}
+                </AlertDialogDescription>
+              )}
+            </AlertDialogHeader>
+            {isGeneratingSummary && !aiSummary && (
+              <div className="space-y-3 py-2">
+                <Skeleton className="h-4 w-11/12 rounded" />
+                <Skeleton className="h-4 w-full rounded" />
+                <Skeleton className="h-4 w-10/12 rounded" />
+                <Skeleton className="h-4 w-3/4 rounded" />
               </div>
             )}
-
-            <div className="mt-8 mb-6">
-              <Button 
-                onClick={handleGenerateSummary} 
-                disabled={isGeneratingSummary || !historicalData || historicalData.length === 0}
-                variant="outline"
-                size="lg"
-              >
-                <Brain className="mr-2 h-5 w-5" />
-                {isGeneratingSummary ? "Generating Summary..." : "Get AI Air Quality Summary"}
-              </Button>
-            </div>
-
-            <div className="mt-8">
-              <div className="mb-4">
-                <Label htmlFor="metric-select" className="text-lg font-semibold">View History & Spectrum For:</Label>
-                <Select
-                  value={selectedMetricForChart}
-                  onValueChange={(value) => setSelectedMetricForChart(value as MetricKey)}
-                >
-                  <SelectTrigger id="metric-select" className="w-full md:w-[280px] mt-2">
-                    <SelectValue placeholder="Select a metric" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {metricKeys.map((key) => (
-                      <SelectItem key={key} value={key}>
-                        {DEFAULT_METRIC_CONFIGS[key as MetricKey].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <MetricHistoryChart 
-                historicalData={historicalData}
-                selectedMetric={selectedMetricForChart}
-              />
-              {dftResults && selectedMetricConfig && (
-                <FrequencySpectrumChart
-                  dftData={dftResults}
-                  metricConfig={selectedMetricConfig}
-                  isLoading={isCalculatingDFT}
-                />
-              )}
-              {!dftResults && !isCalculatingDFT && historicalData && historicalData.length > 1 && selectedMetricConfig && (
-                 <Card className="mt-6 shadow-lg">
-                    <CardHeader>
-                      <CardTitle>Frequency Spectrum: {selectedMetricConfig.label}</CardTitle>
-                      <CardDescription>
-                        Not enough data or error in calculation for frequency spectrum.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-                      <p>Unable to display spectrum.</p>
-                    </CardContent>
-                  </Card>
-              )}
-            </div>
-          </>
-        )}
-      </main>
-
-      <AlertDialog open={showSummaryDialog} onOpenChange={setShowSummaryDialog}>
-        <AlertDialogContent className="max-w-lg">
-          <AlertDialogHeader>
-            <AlertDialogTitle>AI Air Quality Summary</AlertDialogTitle>
-            <AlertDialogDescription>
-              {isGeneratingSummary && "Generating your air quality summary, please wait..."}
-              {summaryError && `Error: ${summaryError}`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          {aiSummary && !isGeneratingSummary && (
-            <ScrollArea className="max-h-[400px] pr-4">
-                 <p className="text-sm whitespace-pre-wrap">{aiSummary}</p>
-            </ScrollArea>
-           
-          )}
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowSummaryDialog(false)}>Close</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {infoMetricKey && (
-        <AlertDialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
-          <AlertDialogContent className="max-w-md">
-            <AlertDialogHeader>
-              <AlertDialogTitle>{METRIC_INFO_CONTENT[infoMetricKey].title}</AlertDialogTitle>
-            </AlertDialogHeader>
-            <ScrollArea className="max-h-[60vh] pr-4">
-              <div className="space-y-3 text-sm">
-                <div>
-                  <h4 className="font-semibold mb-1">Typical Sources:</h4>
-                  <p className="text-muted-foreground">{METRIC_INFO_CONTENT[infoMetricKey].sources}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-1">Implications:</h4>
-                  <p className="text-muted-foreground">{METRIC_INFO_CONTENT[infoMetricKey].implications}</p>
-                </div>
-                <div>
-                  <h4 className="font-semibold mb-1">Recommendations:</h4>
-                  <p className="text-muted-foreground">
-                    {
-                      METRIC_INFO_CONTENT[infoMetricKey].recommendations[getCurrentMetricStatusForInfo(infoMetricKey)] ||
-                      METRIC_INFO_CONTENT[infoMetricKey].recommendations.unknown
-                    }
-                  </p>
-                </div>
-              </div>
-            </ScrollArea>
+            {aiSummary && !isGeneratingSummary && (
+              <ScrollArea className="max-h-[400px] pr-4">
+                  <p className="text-sm whitespace-pre-wrap">{aiSummary}</p>
+              </ScrollArea>
+            
+            )}
             <AlertDialogFooter>
-              <AlertDialogAction onClick={() => { setShowInfoDialog(false); setInfoMetricKey(null); }}>Close</AlertDialogAction>
+              <AlertDialogAction onClick={() => setShowSummaryDialog(false)}>Close</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      )}
+
+        {infoMetricKey && (
+          <AlertDialog open={showInfoDialog} onOpenChange={setShowInfoDialog}>
+            <AlertDialogContent className="max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle>{METRIC_INFO_CONTENT[infoMetricKey].title}</AlertDialogTitle>
+              </AlertDialogHeader>
+              <ScrollArea className="max-h-[60vh] pr-4">
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <h4 className="font-semibold mb-1">Typical Sources:</h4>
+                    <p className="text-muted-foreground">{METRIC_INFO_CONTENT[infoMetricKey].sources}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Implications:</h4>
+                    <p className="text-muted-foreground">{METRIC_INFO_CONTENT[infoMetricKey].implications}</p>
+                  </div>
+                  <div>
+                    <h4 className="font-semibold mb-1">Recommendations:</h4>
+                    <p className="text-muted-foreground">
+                      {
+                        METRIC_INFO_CONTENT[infoMetricKey].recommendations[getCurrentMetricStatusForInfo(infoMetricKey)] ||
+                        METRIC_INFO_CONTENT[infoMetricKey].recommendations.unknown
+                      }
+                    </p>
+                  </div>
+                </div>
+              </ScrollArea>
+              <AlertDialogFooter>
+                <AlertDialogAction onClick={() => { setShowInfoDialog(false); setInfoMetricKey(null); }}>Close</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
 
 
-      <footer className="text-center p-4 text-sm text-muted-foreground border-t border-border">
-        AirCube &copy; {new Date().getFullYear()} - Air Quality Monitoring.
-      </footer>
-    </div>
+        <footer className="text-center p-4 text-sm text-muted-foreground border-t border-border">
+          AirCube &copy; {new Date().getFullYear()} - Air Quality Monitoring.
+        </footer>
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -434,7 +450,7 @@ function CardSkeleton({ metricId }: { metricId: MetricKey}) {
         {/* Placeholder for Icon and Info Button */}
         <div className="flex items-center gap-2">
           <Skeleton className="h-5 w-5 rounded-full" />
-           <Skeleton className="h-4 w-4 rounded-sm" />
+          <Skeleton className="h-4 w-4 rounded-sm" />
         </div>
       </div>
       <div>
@@ -444,4 +460,3 @@ function CardSkeleton({ metricId }: { metricId: MetricKey}) {
     </div>
   );
 }
-
