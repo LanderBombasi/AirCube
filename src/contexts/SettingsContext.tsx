@@ -6,7 +6,7 @@ import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS } from '@/lib/constants';
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
-export type ColorThemeName = 'default' | 'oceanBlue' | 'forestGreen';
+export type ColorThemeName = 'default' | 'oceanBlue' | 'forestGreen' | 'softPink' | 'richViolet' | 'modernGray';
 
 interface ColorTheme {
   name: ColorThemeName;
@@ -70,6 +70,81 @@ export const COLOR_THEMES: Record<ColorThemeName, ColorTheme> = {
         '--border': '120 15% 88%',
         '--input': '120 15% 88%',
         '--ring': '130 50% 40%',
+      },
+    },
+  },
+  softPink: {
+    name: 'softPink',
+    label: 'Soft Pink',
+    colors: {
+      light: {
+        '--background': '330 100% 97%',
+        '--foreground': '330 50% 30%',
+        '--card': '330 100% 100%',
+        '--card-foreground': '330 50% 30%',
+        '--popover': '330 100% 100%',
+        '--popover-foreground': '330 50% 30%',
+        '--primary': '330 90% 60%',
+        '--primary-foreground': '0 0% 100%',
+        '--secondary': '330 80% 92%',
+        '--secondary-foreground': '330 50% 30%',
+        '--muted': '330 60% 90%',
+        '--muted-foreground': '330 30% 50%',
+        '--accent': '300 90% 70%',
+        '--accent-foreground': '330 50% 30%',
+        '--border': '330 70% 90%',
+        '--input': '330 70% 90%',
+        '--ring': '330 90% 60%',
+      },
+    },
+  },
+  richViolet: {
+    name: 'richViolet',
+    label: 'Rich Violet',
+    colors: {
+      light: {
+        '--background': '270 50% 96%',
+        '--foreground': '270 60% 25%',
+        '--card': '270 50% 100%',
+        '--card-foreground': '270 60% 25%',
+        '--popover': '270 50% 100%',
+        '--popover-foreground': '270 60% 25%',
+        '--primary': '270 70% 55%',
+        '--primary-foreground': '0 0% 100%',
+        '--secondary': '270 40% 90%',
+        '--secondary-foreground': '270 50% 35%',
+        '--muted': '270 30% 88%',
+        '--muted-foreground': '270 30% 45%',
+        '--accent': '290 80% 65%',
+        '--accent-foreground': '270 60% 25%',
+        '--border': '270 40% 88%',
+        '--input': '270 40% 88%',
+        '--ring': '270 70% 55%',
+      },
+    },
+  },
+  modernGray: {
+    name: 'modernGray',
+    label: 'Modern Gray',
+    colors: {
+      light: {
+        '--background': '210 10% 92%',
+        '--foreground': '210 20% 20%',
+        '--card': '0 0% 100%',
+        '--card-foreground': '210 20% 20%',
+        '--popover': '0 0% 100%',
+        '--popover-foreground': '210 20% 20%',
+        '--primary': '210 30% 45%',
+        '--primary-foreground': '0 0% 100%',
+        '--secondary': '210 10% 85%',
+        '--secondary-foreground': '210 20% 20%',
+        '--muted': '210 10% 80%',
+        '--muted-foreground': '210 15% 40%',
+        '--accent': '0 0% 60%',
+        '--accent-foreground': '0 0% 100%',
+        '--border': '210 10% 80%',
+        '--input': '210 10% 80%',
+        '--ring': '210 30% 45%',
       },
     },
   },
@@ -157,19 +232,30 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     
     // Apply color theme variables
     const selectedTheme = COLOR_THEMES[activeColorTheme];
-    const colorsToApply = selectedTheme.colors.light; // For now, custom themes only affect light mode directly
+    const colorsToApply = selectedTheme.colors.light; 
 
-    // Remove any previously applied inline theme styles
+    // Remove any previously applied inline theme styles from other themes
     Object.keys(COLOR_THEMES).forEach(themeKey => {
-      const theme = COLOR_THEMES[themeKey as ColorThemeName];
-      Object.keys(theme.colors.light).forEach(cssVar => {
-        root.style.removeProperty(cssVar);
-      });
+      if (themeKey !== activeColorTheme) {
+        const theme = COLOR_THEMES[themeKey as ColorThemeName];
+        Object.keys(theme.colors.light).forEach(cssVar => {
+          root.style.removeProperty(cssVar);
+        });
+      }
     });
     
     if (activeColorTheme !== 'default') {
       Object.entries(colorsToApply).forEach(([cssVar, hslValue]) => {
         root.style.setProperty(cssVar, hslValue);
+      });
+    } else {
+      // If default, ensure all theme-specific variables are removed
+      Object.values(COLOR_THEMES).forEach(theme => {
+        if (theme.name !== 'default') {
+          Object.keys(theme.colors.light).forEach(cssVar => {
+            root.style.removeProperty(cssVar);
+          });
+        }
       });
     }
     localStorage.setItem('activeColorTheme', activeColorTheme);
@@ -241,11 +327,11 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
   const getSeasonalTempThresholds = useCallback((): MetricConfig['thresholds'] => {
     const month = new Date().getMonth(); 
-    if (month === 11 || month === 0 || month === 1) { 
+    if (month === 11 || month === 0 || month === 1) { // Dec, Jan, Feb
       return { idealLow: 24, idealHigh: 31, warningLow: 21, warningHigh: 34, dangerLow: 20, dangerHigh: 35 };
-    } else if (month >= 2 && month <= 4) { 
+    } else if (month >= 2 && month <= 4) { // Mar, Apr, May
       return { idealLow: 28, idealHigh: 38, warningLow: 25, warningHigh: 41, dangerLow: 24, dangerHigh: 42 };
-    } else { 
+    } else { // Jun, Jul, Aug, Sep, Oct, Nov
       return { idealLow: 27, idealHigh: 34, warningLow: 24, warningHigh: 37, dangerLow: 23, dangerHigh: 38 };
     }
   }, []);
@@ -259,31 +345,42 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     if (metricKey === MetricKey.temp) {
       const hasCustomTempSettings = userCustomSettings && Object.keys(userCustomSettings).some(key => userCustomSettings[key as keyof CustomThresholdValues] !== undefined);
       if (hasCustomTempSettings) {
-        const merged = { ...baseDefaults };
+        const merged = { ...baseDefaults }; // Start with base defaults for temp
          for (const key in userCustomSettings) {
           if (Object.prototype.hasOwnProperty.call(userCustomSettings, key)) {
             const typedKey = key as keyof CustomThresholdValues;
-            if (userCustomSettings[typedKey] !== undefined && !isNaN(Number(userCustomSettings[typedKey]))) {
-              (merged as any)[typedKey] = userCustomSettings[typedKey];
+            const customValue = userCustomSettings[typedKey];
+            if (customValue !== undefined && !isNaN(Number(customValue))) {
+              (merged as any)[typedKey] = Number(customValue);
+            } else if (customValue === undefined && (merged as any)[typedKey] !== undefined) {
+              // If user clears a field, revert to base default for that specific field
+              // This part requires careful handling if we want to "unset" to base default
+              // For now, if a custom value exists (even if it's an empty string leading to NaN), it might take precedence.
+              // The current logic prioritizes any custom numeric value.
+              // Let's assume clearing a field means we want to use the default from METRIC_CONFIGS for that specific field
+              // but if any *other* custom field for temp is set, we still consider it a "custom temp setting" scenario.
             }
           }
         }
-        return merged;
+        // Ensure all relevant threshold keys are present, falling back to baseDefaults if not in merged custom
+        const finalMerged = { ...baseDefaults, ...merged };
+        return finalMerged;
       } else {
         return getSeasonalTempThresholds();
       }
-    } else {
+    } else { // For other metrics
       if (userCustomSettings && Object.keys(userCustomSettings).length > 0) {
         const merged = { ...baseDefaults };
         for (const key in userCustomSettings) {
           if (Object.prototype.hasOwnProperty.call(userCustomSettings, key)) {
             const typedKey = key as keyof CustomThresholdValues;
-            if (userCustomSettings[typedKey] !== undefined && !isNaN(Number(userCustomSettings[typedKey]))) {
-              (merged as any)[typedKey] = userCustomSettings[typedKey];
+            const customValue = userCustomSettings[typedKey];
+            if (customValue !== undefined && !isNaN(Number(customValue))) {
+              (merged as any)[typedKey] = Number(customValue);
             }
           }
         }
-        return merged;
+        return { ...baseDefaults, ...merged };
       }
       return baseDefaults;
     }
@@ -291,7 +388,23 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
 
   if (!isMounted) {
-    return null; 
+    // Return a default context value or null during server-side rendering or before hydration
+    // This helps prevent errors but might not be fully functional until mounted.
+    const defaultContextValue: SettingsContextType = {
+        themeMode: 'light',
+        setThemeMode: () => {},
+        activeColorTheme: 'default',
+        setActiveColorTheme: () => {},
+        customThresholds: {},
+        getThresholdsForMetric: (mk: MetricKey) => DEFAULT_METRIC_CONFIGS[mk]?.thresholds || {},
+        updateThreshold: () => {},
+        resetThresholds: () => {},
+    };
+    // It's generally better to return null or a loading state in the component using the context
+    // rather than trying to provide a partially functional default context here for client-side logic.
+    // For the provider itself, it should render children once isMounted is true.
+    // The consuming components should handle the case where context might not be fully ready.
+    return null; // Or a loading spinner, or children wrapped in a fragment if absolutely necessary.
   }
 
   return (
@@ -304,11 +417,21 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 export const useSettings = () => {
   const context = useContext(SettingsContext);
   if (context === undefined) {
-    throw new Error('useSettings must be used within a SettingsProvider');
+    // This can happen if the component using useSettings is rendered before SettingsProvider is fully mounted
+    // or if it's used outside a SettingsProvider.
+    // Provide a fallback or throw a more specific error.
+    // For now, to prevent immediate crashing during SSR/initial load:
+     console.warn('useSettings was called outside of SettingsProvider or before it was mounted. Using fallback values.');
+     return {
+        themeMode: 'light' as ThemeMode,
+        setThemeMode: (themeMode: ThemeMode) => console.warn("setThemeMode called on fallback context", themeMode),
+        activeColorTheme: 'default' as ColorThemeName,
+        setActiveColorTheme: (themeName: ColorThemeName) => console.warn("setActiveColorTheme called on fallback context", themeName),
+        customThresholds: {} as CustomThresholds,
+        getThresholdsForMetric: (metricKey: MetricKey) => DEFAULT_METRIC_CONFIGS[metricKey]?.thresholds || {},
+        updateThreshold: (metricKey: MetricKey, field: keyof CustomThresholdValues, value: string | number) => console.warn("updateThreshold called on fallback context", metricKey, field, value),
+        resetThresholds: (metricKey?: MetricKey) => console.warn("resetThresholds called on fallback context", metricKey),
+     };
   }
   return context;
 };
-
-    
-
-    
