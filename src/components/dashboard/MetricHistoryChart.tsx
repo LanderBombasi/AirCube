@@ -68,12 +68,24 @@ export function MetricHistoryChart({
   }
   
   // Determine Y-axis domain with some padding
-  const values = historicalData.map(p => p[selectedMetric]);
-  let yMin = Math.min(...values);
-  let yMax = Math.max(...values);
-  const padding = (yMax - yMin) * 0.1 || 1; // Add 10% padding, or 1 if range is 0
-  yMin = Math.floor(yMin - padding);
-  yMax = Math.ceil(yMax + padding);
+  const numericValues = historicalData
+    .map(p => p[selectedMetric])
+    .filter(v => typeof v === 'number' && !isNaN(v)) as number[];
+
+  let yMin = 0;
+  let yMax = 100; // Default range if no valid numeric values
+
+  if (numericValues.length > 0) {
+    yMin = Math.min(...numericValues);
+    yMax = Math.max(...numericValues);
+    const padding = (yMax - yMin) * 0.1 || 1; // Add 10% padding, or 1 if range is 0 or no data
+    yMin = Math.floor(yMin - padding);
+    yMax = Math.ceil(yMax + padding);
+    if (yMin === yMax) { // Handle case where all values are the same
+        yMin -= 1;
+        yMax +=1;
+    }
+  }
 
 
   return (
@@ -121,6 +133,7 @@ export function MetricHistoryChart({
               stroke={`var(--color-${selectedMetric})`}
               strokeWidth={2}
               dot={false}
+              connectNulls={false} // Do not connect lines across null/missing data points
             />
           </LineChart>
         </ChartContainer>
@@ -128,3 +141,4 @@ export function MetricHistoryChart({
     </Card>
   );
 }
+
