@@ -10,7 +10,7 @@ import { Header } from '@/components/layout/Header';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { WifiOff, Brain, BellRing } from 'lucide-react';
+import { WifiOff, Brain } from 'lucide-react';
 import { MetricHistoryChart } from './MetricHistoryChart';
 import { FrequencySpectrumChart } from './FrequencySpectrumChart';
 import { calculateDFT } from '@/lib/fourierUtils';
@@ -36,32 +36,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '../ui/scroll-area';
-import { useToast } from '@/hooks/use-toast';
-
-
-// ***********************************************************************************
-// ** VAPID PUBLIC KEY CONFIGURATION **
-// ** ACTION REQUIRED: Replace the placeholder below with YOUR generated VAPID public key. **
-// ** You can generate VAPID keys using `npx web-push generate-vapid-keys` or an online tool. **
-// ** The PUBLIC key is used here in the client-side code. **
-// ** The PRIVATE key MUST be kept secret and is used on your backend server. **
-// ***********************************************************************************
-const VAPID_PUBLIC_KEY = "YOUR_GENERATED_VAPID_PUBLIC_KEY_GOES_HERE"; // <-- REPLACE THIS VALUE
-
-function urlBase64ToUint8Array(base64String: string) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding)
-    .replace(/-/g, '+')
-    .replace(/_/g, '/');
-
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
 
 
 export function DashboardClient() {
@@ -70,110 +44,13 @@ export function DashboardClient() {
   const [dftResults, setDftResults] = useState<DFTResult[] | null>(null);
   const [isCalculatingDFT, setIsCalculatingDFT] = useState<boolean>(false);
   const { getThresholdsForMetric } = useSettings(); 
-  const { toast } = useToast();
 
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState<boolean>(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [showSummaryDialog, setShowSummaryDialog] = useState<boolean>(false);
-  const [isPushSubscribed, setIsPushSubscribed] = useState(false);
-  const [pushSubscriptionError, setPushSubscriptionError] = useState<string | null>(null);
-
 
   const metricKeys = Object.values(MetricKey);
-
-  // Push Notification Setup
-  const registerServiceWorkerAndSubscribe = useCallback(async () => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      setPushSubscriptionError("Push notifications are not supported by your browser.");
-      toast({ title: "Push Notifications Not Supported", variant: "destructive" });
-      return;
-    }
-
-    try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      console.log('Service Worker registered with scope:', registration.scope);
-
-      if (registration.active) { // Ensure service worker is active
-          const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-        });
-        console.log('Push Subscription:', JSON.stringify(subscription));
-        // TODO: Send this subscription object to your backend server to store it.
-        // e.g., fetch('/api/subscribe-push', { method: 'POST', body: JSON.stringify(subscription), headers: {'Content-Type': 'application/json'} });
-        setIsPushSubscribed(true);
-        setPushSubscriptionError(null);
-        toast({ title: "Subscribed to Push Notifications!" });
-      } else {
-        // This might happen on first load if the SW isn't active yet.
-        // Could add a delay or listen for SW activation.
-        console.warn('Service Worker is registered but not active yet. Subscription might fail or be delayed.');
-        setPushSubscriptionError("Service worker not active yet. Try again shortly.");
-        toast({ title: "Push Subscription Pending", description:"Service worker activating. Please try subscribing again in a moment if it fails.", variant: "default" });
-      }
-
-    } catch (error) {
-      console.error('Service Worker registration or Push Subscription failed:', error);
-      let errorMessage = "Failed to subscribe to push notifications.";
-      if (error instanceof Error) {
-        if (error.name === 'NotAllowedError') {
-          errorMessage = "Permission for notifications was denied.";
-        } else {
-          errorMessage = error.message;
-        }
-      }
-      setPushSubscriptionError(errorMessage);
-      toast({ title: "Push Subscription Failed", description: errorMessage, variant: "destructive" });
-      setIsPushSubscribed(false);
-    }
-  }, [toast]);
-
-  const handleRequestNotificationPermission = useCallback(async () => {
-    if (VAPID_PUBLIC_KEY === "YOUR_GENERATED_VAPID_PUBLIC_KEY_GOES_HERE") { // Check against the new placeholder
-      toast({
-        title: "VAPID Key Missing",
-        description: "Please generate VAPID keys and replace the placeholder VAPID_PUBLIC_KEY in DashboardClient.tsx.",
-        variant: "destructive",
-        duration: 7000,
-      });
-      setPushSubscriptionError("VAPID public key is not configured in the client code.");
-      return;
-    }
-
-    if (!('Notification' in window)) {
-      setPushSubscriptionError("Notifications are not supported by your browser.");
-      toast({ title: "Notifications Not Supported", variant: "destructive" });
-      return;
-    }
-
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      toast({ title: "Notification Permission Granted!" });
-      await registerServiceWorkerAndSubscribe();
-    } else if (permission === 'denied') {
-      setPushSubscriptionError("Notification permission was denied.");
-      toast({ title: "Notification Permission Denied", variant: "destructive" });
-    } else {
-      setPushSubscriptionError("Notification permission was dismissed.");
-      toast({ title: "Notification Permission Dismissed", variant: "default" });
-    }
-  }, [toast, registerServiceWorkerAndSubscribe]);
-
-  // Check current subscription status on mount
-  useEffect(() => {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      navigator.serviceWorker.ready.then(registration => {
-        registration.pushManager.getSubscription().then(subscription => {
-          if (subscription) {
-            setIsPushSubscribed(true);
-            console.log('Already subscribed:', JSON.stringify(subscription));
-          }
-        });
-      });
-    }
-  }, []);
-
 
   useEffect(() => {
     const performDFTCalculation = async () => {
@@ -234,7 +111,7 @@ export function DashboardClient() {
     try {
       const metricsConfiguration: Partial<Record<MetricKey, string>> = {};
       for (const key of metricKeys) {
-        const typedKey = key as MetricKey; // Use the enum members
+        const typedKey = key as MetricKey; 
         const thresholds = getThresholdsForMetric(typedKey);
         metricsConfiguration[typedKey] = formatThresholdForAI(typedKey, thresholds);
       }
@@ -335,7 +212,7 @@ export function DashboardClient() {
               </div>
             )}
 
-            <div className="mt-8 mb-6 space-y-4 md:space-y-0 md:flex md:items-center md:gap-4">
+            <div className="mt-8 mb-6">
               <Button 
                 onClick={handleGenerateSummary} 
                 disabled={isGeneratingSummary || !historicalData || historicalData.length === 0}
@@ -345,26 +222,6 @@ export function DashboardClient() {
                 <Brain className="mr-2 h-5 w-5" />
                 {isGeneratingSummary ? "Generating Summary..." : "Get AI Air Quality Summary"}
               </Button>
-              {!isPushSubscribed && (
-                <Button
-                  onClick={handleRequestNotificationPermission}
-                  variant="outline"
-                  size="lg"
-                  disabled={VAPID_PUBLIC_KEY === "YOUR_GENERATED_VAPID_PUBLIC_KEY_GOES_HERE"} // Check against the new placeholder
-                >
-                  <BellRing className="mr-2 h-5 w-5" />
-                  Enable Push Notifications
-                </Button>
-              )}
-              {isPushSubscribed && (
-                 <p className="text-sm text-green-600 flex items-center"><BellRing className="mr-2 h-5 w-5 text-green-500" />Push notifications enabled.</p>
-              )}
-               {VAPID_PUBLIC_KEY === "YOUR_GENERATED_VAPID_PUBLIC_KEY_GOES_HERE" && !isPushSubscribed && ( // Check against the new placeholder
-                 <p className="text-xs text-destructive">Push notifications disabled: VAPID key not configured in client code.</p>
-              )}
-              {pushSubscriptionError && (
-                <p className="text-sm text-destructive">{pushSubscriptionError}</p>
-              )}
             </div>
 
             <div className="mt-8">
@@ -443,7 +300,7 @@ export function DashboardClient() {
   );
 }
 
-function CardSkeleton({ metricId }: { metricId: MetricKey}) { // Changed prop name to metricId and type to MetricKey
+function CardSkeleton({ metricId }: { metricId: MetricKey}) { 
   return (
     <div className="p-6 rounded-lg border bg-card shadow-sm">
       <div className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -458,4 +315,4 @@ function CardSkeleton({ metricId }: { metricId: MetricKey}) { // Changed prop na
   );
 }
 
-
+    
