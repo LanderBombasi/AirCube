@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAirQualityData } from '@/hooks/useAirQualityData';
 import { DataCard } from './DataCard';
 import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
-import type { MetricKey, MetricConfig, HistoricalDataPoint } from '@/types/airQuality';
+import { MetricKey, type MetricConfig, type HistoricalDataPoint } from '@/types/airQuality';
 import { Header } from '@/components/layout/Header';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from '@/components/ui/button';
