@@ -5,14 +5,15 @@ import * as React from "react";
 import { format } from "date-fns";
 import {
   Line,
-  LineChart,
+  LineChart as RechartsLineChart, // Renamed to avoid conflict with lucide-react icon
   CartesianGrid,
   XAxis,
   YAxis,
-  Tooltip as RechartsTooltip, // Renamed to avoid conflict with ShadCN Tooltip
+  Tooltip as RechartsTooltip,
 } from "recharts";
 import type { HistoricalDataPoint, MetricKey, MetricConfig } from "@/types/airQuality";
 import { METRIC_CONFIGS } from "@/lib/constants";
+import { LineChartIcon } from 'lucide-react'; // Icon for empty state
 
 import {
   Card,
@@ -46,42 +47,46 @@ export function MetricHistoryChart({
   const chartSpecificConfig = {
     [selectedMetric]: {
       label: metricConfig.label,
-      color: "hsl(var(--accent))", // Using accent color for the line
+      color: "hsl(var(--accent))", 
     },
   } satisfies ChartConfig;
 
 
   if (!historicalData || historicalData.length < 2) {
     return (
-      <Card className="mt-6">
+      <Card className="mt-6 shadow-lg">
         <CardHeader>
           <CardTitle>History: {metricConfig.label}</CardTitle>
           <CardDescription>
-            Not enough data to display a chart. At least two readings are needed.
+            Historical trend of {metricConfig.label}.
           </CardDescription>
         </CardHeader>
-        <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-          <p>Waiting for more data...</p>
+        <CardContent className="h-[300px] flex flex-col items-center justify-center text-center">
+          <LineChartIcon className="h-16 w-16 text-muted-foreground mb-4" />
+          <p className="text-lg font-semibold text-foreground">Not Enough Data</p>
+          <p className="text-sm text-muted-foreground">
+            At least two historical readings are needed to display a chart.
+            Keep your AirCube connected to gather more data.
+          </p>
         </CardContent>
       </Card>
     );
   }
   
-  // Determine Y-axis domain with some padding
   const numericValues = historicalData
     .map(p => p[selectedMetric])
     .filter(v => typeof v === 'number' && !isNaN(v)) as number[];
 
   let yMin = 0;
-  let yMax = 100; // Default range if no valid numeric values
+  let yMax = 100; 
 
   if (numericValues.length > 0) {
     yMin = Math.min(...numericValues);
     yMax = Math.max(...numericValues);
-    const padding = (yMax - yMin) * 0.1 || 1; // Add 10% padding, or 1 if range is 0 or no data
+    const padding = (yMax - yMin) * 0.1 || 1; 
     yMin = Math.floor(yMin - padding);
     yMax = Math.ceil(yMax + padding);
-    if (yMin === yMax) { // Handle case where all values are the same
+    if (yMin === yMax) { 
         yMin -= 1;
         yMax +=1;
     }
@@ -98,7 +103,7 @@ export function MetricHistoryChart({
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartSpecificConfig} className="h-[300px] w-full">
-          <LineChart
+          <RechartsLineChart
             accessibilityLayer
             data={chartData}
             margin={{
@@ -133,12 +138,11 @@ export function MetricHistoryChart({
               stroke={`var(--color-${selectedMetric})`}
               strokeWidth={2}
               dot={false}
-              connectNulls={false} // Do not connect lines across null/missing data points
+              connectNulls={false} 
             />
-          </LineChart>
+          </RechartsLineChart>
         </ChartContainer>
       </CardContent>
     </Card>
   );
 }
-

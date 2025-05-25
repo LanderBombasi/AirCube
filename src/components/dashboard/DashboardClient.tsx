@@ -10,7 +10,7 @@ import { Header } from '@/components/layout/Header';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { WifiOff, Brain, Info } from 'lucide-react';
+import { WifiOff, Brain, Info, AreaChart, ChevronDown } from 'lucide-react';
 import { MetricHistoryChart } from './MetricHistoryChart';
 import { FrequencySpectrumChart } from './FrequencySpectrumChart';
 import { calculateDFT } from '@/lib/fourierUtils';
@@ -37,6 +37,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '../ui/scroll-area';
 import { TooltipProvider } from "@/components/ui/tooltip";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 
 interface MetricInfoRecommendations {
@@ -169,8 +175,14 @@ export function DashboardClient() {
   }, [historicalData, selectedMetricForChart]);
 
   const selectedMetricConfig = useMemo(() => {
-    return DEFAULT_METRIC_CONFIGS[selectedMetricForChart];
+    // Ensure selectedMetricForChart is a valid MetricKey before accessing DEFAULT_METRIC_CONFIGS
+    if (Object.values(MetricKey).includes(selectedMetricForChart)) {
+      return DEFAULT_METRIC_CONFIGS[selectedMetricForChart];
+    }
+    // Fallback if selectedMetricForChart is somehow invalid, though Select should prevent this.
+    return DEFAULT_METRIC_CONFIGS[MetricKey.co2]; 
   }, [selectedMetricForChart]);
+
 
   const formatThresholdForAI = (metricKey: MetricKey, thresholds: MetricConfig['thresholds']): string => {
     const config = DEFAULT_METRIC_CONFIGS[metricKey];
@@ -269,8 +281,8 @@ export function DashboardClient() {
         <main className="flex-grow container mx-auto p-4 md:p-8">
           {connectionStatus === 'connecting' && !data && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-              {metricKeys.map((metricKey) => (
-                <CardSkeleton key={metricKey} metricId={metricKey} />
+              {metricKeys.map((metricId) => ( // Changed from metricKey to metricId to match prop name
+                <CardSkeleton key={metricId} metricId={metricId} />
               ))}
             </div>
           )}
@@ -297,8 +309,8 @@ export function DashboardClient() {
                   <p className="text-muted-foreground text-lg">Waiting for initial data from AirCube...</p>
                   <p className="text-sm text-muted-foreground">Make sure your ESP32 device is powered on and sending data to Firebase.</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 mt-4">
-                      {metricKeys.map((metricKey) => (
-                        <CardSkeleton key={metricKey} metricId={metricKey} />
+                      {metricKeys.map((metricId) => ( // Changed from metricKey to metricId to match prop name
+                        <CardSkeleton key={metricId} metricId={metricId} />
                       ))}
                     </div>
                 </div>
@@ -316,50 +328,60 @@ export function DashboardClient() {
                 </Button>
               </div>
 
-              <div className="mt-8">
-                <div className="mb-4">
-                  <Label htmlFor="metric-select" className="text-lg font-semibold">View History & Spectrum For:</Label>
-                  <Select
-                    value={selectedMetricForChart}
-                    onValueChange={(value) => setSelectedMetricForChart(value as MetricKey)}
-                  >
-                    <SelectTrigger id="metric-select" className="w-full md:w-[280px] mt-2">
-                      <SelectValue placeholder="Select a metric" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {metricKeys.map((key) => (
-                        <SelectItem key={key} value={key}>
-                          {DEFAULT_METRIC_CONFIGS[key as MetricKey].label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <MetricHistoryChart 
-                  historicalData={historicalData}
-                  selectedMetric={selectedMetricForChart}
-                />
-                {dftResults && selectedMetricConfig && (
-                  <FrequencySpectrumChart
-                    dftData={dftResults}
-                    metricConfig={selectedMetricConfig}
-                    isLoading={isCalculatingDFT}
-                  />
-                )}
-                {!dftResults && !isCalculatingDFT && historicalData && historicalData.length > 1 && selectedMetricConfig && (
-                  <Card className="mt-6 shadow-lg">
-                      <CardHeader>
-                        <CardTitle>Frequency Spectrum: {selectedMetricConfig.label}</CardTitle>
-                        <CardDescription>
-                          Not enough data or error in calculation for frequency spectrum.
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-                        <p>Unable to display spectrum.</p>
-                      </CardContent>
-                    </Card>
-                )}
-              </div>
+              <Accordion type="single" collapsible className="w-full mt-8" defaultValue="item-1">
+                <AccordionItem value="item-1">
+                  <AccordionTrigger className="text-xl font-semibold hover:no-underline py-3 px-1">
+                    <div className="flex items-center gap-2">
+                      <AreaChart className="h-6 w-6 text-primary" />
+                      Historical Data & Frequency Analysis
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-4">
+                    <div className="mb-4">
+                      <Label htmlFor="metric-select" className="text-lg font-semibold">View History & Spectrum For:</Label>
+                      <Select
+                        value={selectedMetricForChart}
+                        onValueChange={(value) => setSelectedMetricForChart(value as MetricKey)}
+                      >
+                        <SelectTrigger id="metric-select" className="w-full md:w-[280px] mt-2">
+                          <SelectValue placeholder="Select a metric" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {metricKeys.map((key) => (
+                            <SelectItem key={key} value={key}>
+                              {DEFAULT_METRIC_CONFIGS[key as MetricKey].label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <MetricHistoryChart 
+                      historicalData={historicalData}
+                      selectedMetric={selectedMetricForChart}
+                    />
+                    {dftResults && selectedMetricConfig && (
+                      <FrequencySpectrumChart
+                        dftData={dftResults}
+                        metricConfig={selectedMetricConfig}
+                        isLoading={isCalculatingDFT}
+                      />
+                    )}
+                    {!dftResults && !isCalculatingDFT && historicalData && historicalData.length > 1 && selectedMetricConfig && (
+                      <Card className="mt-6 shadow-lg">
+                          <CardHeader>
+                            <CardTitle>Frequency Spectrum: {selectedMetricConfig.label}</CardTitle>
+                            <CardDescription>
+                              Not enough data or error in calculation for frequency spectrum.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
+                            <p>Unable to display spectrum.</p>
+                          </CardContent>
+                        </Card>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </>
           )}
         </main>
@@ -447,7 +469,6 @@ function CardSkeleton({ metricId }: { metricId: MetricKey}) {
     <div className="p-6 rounded-lg border bg-card shadow-sm">
       <div className="flex flex-row items-center justify-between space-y-0 pb-2">
         <Skeleton className="h-5 w-2/4" /> 
-        {/* Placeholder for Icon and Info Button */}
         <div className="flex items-center gap-2">
           <Skeleton className="h-5 w-5 rounded-full" />
           <Skeleton className="h-4 w-4 rounded-sm" />

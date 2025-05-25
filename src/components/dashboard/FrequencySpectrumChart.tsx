@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import {
-  BarChart,
+  BarChart as RechartsBarChart, // Renamed to avoid conflict with lucide-react icon
   Bar,
   XAxis,
   YAxis,
@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import type { DFTResult } from "@/lib/fourierUtils";
 import type { MetricConfig } from "@/types/airQuality";
+import { BarChart2, Loader2, AlertTriangle } from 'lucide-react'; // Icons
 
 import {
   Card,
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/chart";
 
 interface FrequencySpectrumChartProps {
-  dftData: DFTResult[];
+  dftData: DFTResult[] | null; // Allow null for loading/error states
   metricConfig: MetricConfig;
   isLoading: boolean;
 }
@@ -51,11 +52,15 @@ export function FrequencySpectrumChart({
         <CardHeader>
           <CardTitle>Frequency Spectrum: {metricConfig.label}</CardTitle>
           <CardDescription>
-            Calculating Fourier Transform...
+            Analyzing frequency components of recent {metricConfig.label} data.
           </CardDescription>
         </CardHeader>
-        <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-          <p>Loading spectrum data...</p>
+        <CardContent className="h-[300px] flex flex-col items-center justify-center text-center">
+          <Loader2 className="h-16 w-16 text-primary animate-spin mb-4" />
+          <p className="text-lg font-semibold text-foreground">Calculating Spectrum...</p>
+          <p className="text-sm text-muted-foreground">
+            This may take a moment for longer data sets.
+          </p>
         </CardContent>
       </Card>
     );
@@ -67,24 +72,24 @@ export function FrequencySpectrumChart({
         <CardHeader>
           <CardTitle>Frequency Spectrum: {metricConfig.label}</CardTitle>
           <CardDescription>
-            Not enough historical data to calculate or display frequency spectrum.
-            At least a few historical readings are needed.
+            Analysis of frequency components in {metricConfig.label} data.
           </CardDescription>
         </CardHeader>
-        <CardContent className="h-[300px] flex items-center justify-center text-muted-foreground">
-          <p>Waiting for more data...</p>
+        <CardContent className="h-[300px] flex flex-col items-center justify-center text-center">
+          <BarChart2 className="h-16 w-16 text-muted-foreground mb-4" />
+          <p className="text-lg font-semibold text-foreground">Insufficient Data for Spectrum</p>
+          <p className="text-sm text-muted-foreground">
+            More historical readings are needed to perform frequency analysis.
+            Or, there might have been an issue calculating the spectrum.
+          </p>
         </CardContent>
       </Card>
     );
   }
   
-  // Determine Y-axis domain for magnitude with some padding
-  // Exclude k=0 (DC component) for y-axis scaling if it's too large,
-  // but still plot it. Or, use a log scale if appropriate (more complex).
-  // For now, simple linear scale including DC.
   const magnitudes = dftData.map(p => p.magnitude);
   let yMax = Math.max(...magnitudes);
-  const yMin = 0; // Magnitude is always non-negative
+  const yMin = 0; 
   const padding = yMax * 0.1 || 1;
   yMax = Math.ceil(yMax + padding);
 
@@ -100,7 +105,7 @@ export function FrequencySpectrumChart({
       </CardHeader>
       <CardContent>
         <ChartContainer config={chartConfig} className="h-[300px] w-full">
-          <BarChart
+          <RechartsBarChart
             accessibilityLayer
             data={dftData}
             margin={{
@@ -131,7 +136,7 @@ export function FrequencySpectrumChart({
                 active && payload && payload.length ? (
                   <ChartTooltipContent
                     hideLabel
-                    label="" // Keep this empty as we customize the content
+                    label="" 
                     formatter={(value, name, item) => (
                       <>
                         <div className="font-medium">Bin {item.payload.frequencyIndex}</div>
@@ -148,7 +153,7 @@ export function FrequencySpectrumChart({
               }
             />
             <Bar dataKey="magnitude" fill="var(--color-magnitude)" radius={4} />
-          </BarChart>
+          </RechartsBarChart>
         </ChartContainer>
       </CardContent>
     </Card>
