@@ -5,6 +5,7 @@ import type { ConnectionStatus } from '@/types/airQuality';
 import { Button } from '@/components/ui/button';
 import { Wifi, WifiOff, LoaderCircle, PlugZap, Bluetooth, ServerCrash, Cog } from 'lucide-react';
 import { SettingsDialog } from '@/components/settings/SettingsDialog';
+import Image from 'next/image';
 
 interface HeaderProps {
   connectionStatus: ConnectionStatus;
@@ -35,17 +36,13 @@ export function Header({ connectionStatus, lastUpdateTime, onConnect, onDisconne
     <header className="py-4 px-4 md:px-8 shadow-md bg-card">
       <div className="container mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2">
-           <svg width="32" height="32" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style={{stopColor: 'hsl(var(--primary))', stopOpacity:1}} />
-                <stop offset="100%" style={{stopColor: 'hsl(var(--accent))', stopOpacity:1}} />
-              </linearGradient>
-            </defs>
-            <rect width="70" height="70" x="15" y="15" rx="10" ry="10" fill="url(#grad1)" />
-            <rect width="50" height="50" x="25" y="25" rx="5" ry="5" fill="hsl(var(--background))" />
-             <text x="50" y="62" fontFamily="var(--font-geist-mono)" fontSize="30" fill="hsl(var(--primary))" textAnchor="middle">AC</text>
-          </svg>
+          <Image 
+            src="/AirCube_Icon.png" 
+            alt="AirCube Logo" 
+            width={32} 
+            height={32}
+            className="rounded-sm" 
+          />
           <h1 className="text-2xl font-bold text-primary">AirCube</h1>
         </div>
         <div className="flex items-center gap-3">
