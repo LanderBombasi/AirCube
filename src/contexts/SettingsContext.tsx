@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { MetricKey, MetricConfig } from '@/types/airQuality';
+import { MetricKey, type MetricConfig } from '@/types/airQuality';
 import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS } from '@/lib/constants';
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
@@ -308,5 +308,7 @@ export const useSettings = () => {
   }
   return context;
 };
+
+    
 
     
