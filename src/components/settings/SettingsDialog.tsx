@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { useSettings, type CustomThresholdValues, type ColorThemeName, COLOR_THEMES } from '@/contexts/SettingsContext';
-import type { MetricKey } from '@/types/airQuality';
+import { MetricKey } from '@/types/airQuality'; // Changed from import type
 import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS } from '@/lib/constants';
 import { Button } from "@/components/ui/button";
 import {
