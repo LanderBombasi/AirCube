@@ -4,18 +4,20 @@
 import type { MetricConfig, MetricStatus, MetricKey } from '@/types/airQuality';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { TriangleAlert } from 'lucide-react';
+import { TriangleAlert, Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSettings } from '@/contexts/SettingsContext';
+import { Button } from '@/components/ui/button';
 
 interface DataCardProps {
-  metricConfig: MetricConfig; 
-  metricKey: MetricKey; 
+  metricConfig: MetricConfig;
+  metricKey: MetricKey;
   value: number | null;
   status: MetricStatus;
+  onShowInfo: (metricKey: MetricKey) => void;
 }
 
-export function DataCard({ metricConfig, metricKey, value, status }: DataCardProps) {
+export function DataCard({ metricConfig, metricKey, value, status, onShowInfo }: DataCardProps) {
   const { label, unit, Icon } = metricConfig;
   const { getThresholdsForMetric, customThresholds } = useSettings();
   const [dynamicHint, setDynamicHint] = useState('');
@@ -23,15 +25,12 @@ export function DataCard({ metricConfig, metricKey, value, status }: DataCardPro
   useEffect(() => {
     const activeThresholds = getThresholdsForMetric(metricKey);
     
-    // Check if user has set custom *ideal* thresholds for temperature specifically
     const hasCustomIdealTempThresholds = metricKey === 'temp' && 
                                          customThresholds.temp && 
                                          (customThresholds.temp.idealLow !== undefined || 
                                           customThresholds.temp.idealHigh !== undefined);
 
     if (metricKey === 'temp' && !hasCustomIdealTempThresholds) {
-      // Use seasonal hints only if no custom ideal temp thresholds are set.
-      // The activeThresholds.idealLow/High will be the seasonal ones here.
       const month = new Date().getMonth();
       if (month === 11 || month === 0 || month === 1) { // Dec, Jan, Feb
         setDynamicHint(`Ideal (Dec-Feb): ${activeThresholds.idealLow}-${activeThresholds.idealHigh} ${unit}`);
@@ -41,15 +40,13 @@ export function DataCard({ metricConfig, metricKey, value, status }: DataCardPro
         setDynamicHint(`Ideal (Jun-Nov): ${activeThresholds.idealLow}-${activeThresholds.idealHigh} ${unit}`);
       }
     } else if (activeThresholds.idealLow !== undefined && activeThresholds.idealHigh !== undefined) {
-      // For temp with custom ideal set, or other metrics with ideal ranges (like humidity)
       setDynamicHint(`Ideal: ${activeThresholds.idealLow}-${activeThresholds.idealHigh} ${unit}`);
     } else if (activeThresholds.normalHigh !== undefined) {
-      // For metrics like CO2, CO, Combustible
       setDynamicHint(`Ideal: <${activeThresholds.normalHigh} ${unit}`);
     } else {
-      setDynamicHint("Ideal levels vary."); // Fallback
+      setDynamicHint("Ideal levels vary."); 
     }
-  }, [metricKey, getThresholdsForMetric, unit, customThresholds, label]); // Added customThresholds & label to dependency array
+  }, [metricKey, getThresholdsForMetric, unit, customThresholds, label]);
 
   const cardBorderColor = () => {
     switch (status) {
@@ -82,8 +79,14 @@ export function DataCard({ metricConfig, metricKey, value, status }: DataCardPro
   return (
     <Card className={cn("shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105", cardBorderColor(), 'border-2')}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-card-foreground">{label}</CardTitle>
-        <Icon className={cn("h-5 w-5", value === null ? "text-muted-foreground" : isCritical ? valueColor() : "text-primary" )} />
+        <div className="flex items-center gap-2">
+          <Icon className={cn("h-5 w-5", value === null ? "text-muted-foreground" : isCritical ? valueColor() : "text-primary" )} />
+          <CardTitle className="text-sm font-medium text-card-foreground">{label}</CardTitle>
+        </div>
+        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onShowInfo(metricKey)}>
+          <Info className="h-4 w-4 text-muted-foreground hover:text-primary" />
+          <span className="sr-only">More info about {label}</span>
+        </Button>
       </CardHeader>
       <CardContent>
         {value !== null && typeof value === 'number' ? (
