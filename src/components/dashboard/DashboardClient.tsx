@@ -39,11 +39,14 @@ import { ScrollArea } from '../ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 
 
-// !!! IMPORTANT: REPLACE WITH YOUR OWN VAPID PUBLIC KEY !!!
-// Generate VAPID keys (public and private) - there are many online tools or libraries for this.
-// The public key is used by the browser to subscribe.
-// The private key is used by your server to send push messages.
-const VAPID_PUBLIC_KEY = "YOUR_VAPID_PUBLIC_KEY_HERE_REPLACE_ME"; 
+// ***********************************************************************************
+// ** VAPID PUBLIC KEY CONFIGURATION **
+// ** ACTION REQUIRED: Replace the placeholder below with YOUR generated VAPID public key. **
+// ** You can generate VAPID keys using `npx web-push generate-vapid-keys` or an online tool. **
+// ** The PUBLIC key is used here in the client-side code. **
+// ** The PRIVATE key MUST be kept secret and is used on your backend server. **
+// ***********************************************************************************
+const VAPID_PUBLIC_KEY = "YOUR_GENERATED_VAPID_PUBLIC_KEY_GOES_HERE"; // <-- REPLACE THIS VALUE
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -77,7 +80,7 @@ export function DashboardClient() {
   const [pushSubscriptionError, setPushSubscriptionError] = useState<string | null>(null);
 
 
-  const metricKeys = Object.keys(DEFAULT_METRIC_CONFIGS) as MetricKey[];
+  const metricKeys = Object.values(MetricKey);
 
   // Push Notification Setup
   const registerServiceWorkerAndSubscribe = useCallback(async () => {
@@ -127,10 +130,10 @@ export function DashboardClient() {
   }, [toast]);
 
   const handleRequestNotificationPermission = useCallback(async () => {
-    if (VAPID_PUBLIC_KEY === "YOUR_VAPID_PUBLIC_KEY_HERE_REPLACE_ME") {
+    if (VAPID_PUBLIC_KEY === "YOUR_GENERATED_VAPID_PUBLIC_KEY_GOES_HERE") { // Check against the new placeholder
       toast({
         title: "VAPID Key Missing",
-        description: "Please replace the placeholder VAPID_PUBLIC_KEY in DashboardClient.tsx.",
+        description: "Please generate VAPID keys and replace the placeholder VAPID_PUBLIC_KEY in DashboardClient.tsx.",
         variant: "destructive",
         duration: 7000,
       });
@@ -231,7 +234,7 @@ export function DashboardClient() {
     try {
       const metricsConfiguration: Partial<Record<MetricKey, string>> = {};
       for (const key of metricKeys) {
-        const typedKey = key as MetricKey;
+        const typedKey = key as MetricKey; // Use the enum members
         const thresholds = getThresholdsForMetric(typedKey);
         metricsConfiguration[typedKey] = formatThresholdForAI(typedKey, thresholds);
       }
@@ -347,7 +350,7 @@ export function DashboardClient() {
                   onClick={handleRequestNotificationPermission}
                   variant="outline"
                   size="lg"
-                  disabled={VAPID_PUBLIC_KEY === "YOUR_VAPID_PUBLIC_KEY_HERE_REPLACE_ME"}
+                  disabled={VAPID_PUBLIC_KEY === "YOUR_GENERATED_VAPID_PUBLIC_KEY_GOES_HERE"} // Check against the new placeholder
                 >
                   <BellRing className="mr-2 h-5 w-5" />
                   Enable Push Notifications
@@ -356,7 +359,7 @@ export function DashboardClient() {
               {isPushSubscribed && (
                  <p className="text-sm text-green-600 flex items-center"><BellRing className="mr-2 h-5 w-5 text-green-500" />Push notifications enabled.</p>
               )}
-               {VAPID_PUBLIC_KEY === "YOUR_VAPID_PUBLIC_KEY_HERE_REPLACE_ME" && !isPushSubscribed && (
+               {VAPID_PUBLIC_KEY === "YOUR_GENERATED_VAPID_PUBLIC_KEY_GOES_HERE" && !isPushSubscribed && ( // Check against the new placeholder
                  <p className="text-xs text-destructive">Push notifications disabled: VAPID key not configured in client code.</p>
               )}
               {pushSubscriptionError && (
@@ -440,7 +443,7 @@ export function DashboardClient() {
   );
 }
 
-function CardSkeleton({ metricId }: { metricId: string}) {
+function CardSkeleton({ metricId }: { metricId: MetricKey}) { // Changed prop name to metricId and type to MetricKey
   return (
     <div className="p-6 rounded-lg border bg-card shadow-sm">
       <div className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -454,3 +457,5 @@ function CardSkeleton({ metricId }: { metricId: string}) {
     </div>
   );
 }
+
+
