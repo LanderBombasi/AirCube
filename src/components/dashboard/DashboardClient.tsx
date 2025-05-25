@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAirQualityData } from '@/hooks/useAirQualityData';
 import { DataCard } from './DataCard';
 import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS, getMetricStatus } from '@/lib/constants';
-import { MetricKey, type MetricConfig, type HistoricalDataPoint } from '@/types/airQuality';
+import { MetricKey, type MetricConfig, type HistoricalDataPoint, type MetricStatus } from '@/types/airQuality';
 import { Header } from '@/components/layout/Header';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from '@/components/ui/button';
@@ -38,11 +38,17 @@ import {
 import { ScrollArea } from '../ui/scroll-area';
 
 
+interface MetricInfoRecommendations {
+  normal: string;
+  warning: string;
+  danger: string;
+  unknown?: string;
+}
 interface MetricInfoContent {
   title: string;
   sources: string;
   implications: string;
-  recommendations: string;
+  recommendations: MetricInfoRecommendations;
 }
 
 const METRIC_INFO_CONTENT: Record<MetricKey, MetricInfoContent> = {
@@ -50,31 +56,56 @@ const METRIC_INFO_CONTENT: Record<MetricKey, MetricInfoContent> = {
     title: "About CO₂ (Carbon Dioxide)",
     sources: "Exhaled air from people and animals, combustion of fossil fuels (heating, cooking with gas), decomposition of organic matter.",
     implications: "High levels (typically >1000-1500 ppm indoors) can indicate poor ventilation. Can cause drowsiness, headaches, difficulty concentrating. Very high levels (>5000 ppm) can be dangerous.",
-    recommendations: "Ensure good ventilation by opening windows regularly. Use air purifiers with CO₂ monitoring if concerned. Reduce indoor sources if possible.",
+    recommendations: {
+      normal: "Maintain good ventilation by opening windows regularly or using mechanical ventilation. Current levels are good.",
+      warning: "CO₂ levels are elevated, suggesting ventilation may be inadequate. Increase fresh air by opening windows or enhancing ventilation. Consider reducing occupancy in the affected area temporarily.",
+      danger: "CO₂ levels are dangerously high. This indicates very poor ventilation or a significant CO₂ source. Ventilate the area immediately with fresh outdoor air. If symptoms like severe headache or dizziness occur, evacuate and seek fresh air. Investigate the cause.",
+      unknown: "Ensure good ventilation by opening windows regularly. Use air purifiers with CO₂ monitoring if concerned. Reduce indoor sources if possible."
+    },
   },
   [MetricKey.co]: {
     title: "About CO (Carbon Monoxide)",
     sources: "Incomplete combustion of fuels (e.g., gas stoves, water heaters, fireplaces, car exhaust, wood burners).",
     implications: "A highly toxic gas, even at low levels. Odorless and colorless. Can cause headaches, dizziness, nausea, confusion, and can be fatal.",
-    recommendations: "Install CO detectors, especially near sleeping areas. Ensure proper ventilation for all fuel-burning appliances and have them regularly inspected. Never run cars or generators in attached garages or enclosed spaces.",
+    recommendations: {
+      normal: "Current CO levels are safe. Continue to ensure fuel-burning appliances are well-maintained and properly ventilated. Ensure CO detectors are functional.",
+      warning: "CO levels are elevated. This is a serious concern. Ventilate the area immediately by opening windows and doors. Turn off any suspected fuel-burning appliances. Evacuate if anyone feels unwell. Call a qualified technician to inspect appliances.",
+      danger: "CO levels are dangerously high! This is an emergency. Evacuate the premises immediately. Do not re-enter until cleared by emergency services. Call emergency services (e.g., fire department) from a safe location. Seek medical attention if anyone has symptoms of CO poisoning.",
+      unknown: "Install CO detectors, especially near sleeping areas. Ensure proper ventilation for all fuel-burning appliances and have them regularly inspected. Never run cars or generators in attached garages or enclosed spaces."
+    },
   },
   [MetricKey.combustible]: {
     title: "About Combustible Gases",
     sources: "Leaks from natural gas or propane (LPG) lines, stoves, water heaters, or stored fuel containers. Some sensors may also detect other volatile organic compounds (VOCs).",
     implications: "Primary risk is fire or explosion. Some gases can also displace oxygen and pose an asphyxiation hazard. Early detection is crucial.",
-    recommendations: "If you suspect a leak (e.g., smell gas or alarm sounds), evacuate the area immediately. Do not operate electrical switches or create sparks. Call your gas company or emergency services from a safe location.",
+    recommendations: {
+      normal: "Current combustible gas levels are normal. Regularly check gas appliances and lines for leaks according to manufacturer recommendations.",
+      warning: "Combustible gas levels are elevated. This could indicate a small leak or accumulation. Avoid using open flames or creating sparks. Ventilate the area. If you smell gas, evacuate immediately and call your gas company or emergency services from a safe location.",
+      danger: "Combustible gas levels are dangerously high! Risk of fire or explosion. Evacuate the area immediately. Do not operate electrical switches, use phones, or create any sparks. Call your gas company or emergency services from a safe distance.",
+      unknown: "If you suspect a leak (e.g., smell gas or alarm sounds), evacuate the area immediately. Do not operate electrical switches or create sparks. Call your gas company or emergency services from a safe location."
+    },
   },
   [MetricKey.temp]: {
     title: "About Temperature",
     sources: "Ambient outdoor conditions, heating/cooling systems (HVAC), sunlight exposure, heat generated by electronic devices and occupants.",
     implications: "Directly affects comfort levels. Extreme temperatures can impact health (heatstroke, hypothermia), sleep quality, and productivity. Can also affect the performance of some electronic devices.",
-    recommendations: "Maintain comfortable indoor temperatures using HVAC, fans, or appropriate clothing. Refer to seasonal ideal ranges for your location. Ensure good insulation and manage sun exposure.",
+    recommendations: {
+      normal: "Current temperature is within a comfortable range. Continue to manage with HVAC or natural ventilation as needed for comfort.",
+      warning: "Temperature is outside the ideal comfort range. Adjust thermostat, use fans, or manage sun exposure to return to a more comfortable level. Dress appropriately for the conditions.",
+      danger: "Temperature is at a level that could pose health risks (e.g., risk of heat stress or hypothermia depending on direction). Take immediate action to moderate the temperature (e.g., use AC/heating, seek a cooler/warmer environment). Be mindful of vulnerable individuals.",
+      unknown: "Maintain comfortable indoor temperatures using HVAC, fans, or appropriate clothing. Refer to seasonal ideal ranges for your location. Ensure good insulation and manage sun exposure."
+    },
   },
   [MetricKey.humidity]: {
     title: "About Humidity",
     sources: "Ambient moisture in the air, activities like cooking, showering, breathing. Weather patterns significantly influence outdoor humidity.",
     implications: "Affects comfort and perceived temperature. High humidity (>65-70%) can promote mold growth, dust mites, and may make it feel warmer. Low humidity (<30-40%) can cause dry skin, irritated sinuses, and static electricity.",
-    recommendations: "Aim for ideal humidity ranges (typically 40-60% indoors). Use dehumidifiers in overly humid conditions, and humidifiers if the air is too dry. Ensure good ventilation to manage moisture.",
+    recommendations: {
+      normal: "Current humidity levels are good. Maintain good ventilation to manage moisture from daily activities.",
+      warning: "Humidity is outside the ideal range. If too high, use a dehumidifier or increase ventilation. If too low, consider a humidifier, especially during dry seasons. Address sources of excess moisture or dryness.",
+      danger: "Humidity levels are extreme and could lead to significant mold growth (if high) or severe discomfort and health issues (if very low). Take corrective actions like using dehumidifiers/humidifiers, improving ventilation, and identifying root causes.",
+      unknown: "Aim for ideal humidity ranges (typically 40-60% indoors). Use dehumidifiers in overly humid conditions, and humidifiers if the air is too dry. Ensure good ventilation to manage moisture."
+    },
   },
 };
 
@@ -101,6 +132,15 @@ export function DashboardClient() {
     setShowInfoDialog(true);
   };
 
+  const getCurrentMetricStatusForInfo = (metricKey: MetricKey | null): MetricStatus => {
+    if (!metricKey || !data) return 'unknown';
+    const currentValue = data[metricKey];
+    const thresholds = getThresholdsForMetric(metricKey);
+    if (typeof currentValue !== 'number') return 'unknown';
+    return getMetricStatus(metricKey, currentValue, thresholds);
+  };
+
+
   useEffect(() => {
     const performDFTCalculation = async () => {
       if (historicalData && historicalData.length > 1) {
@@ -109,6 +149,7 @@ export function DashboardClient() {
         
         if (metricValues.length > 1) {
           try {
+            // Ensure calculateDFT is awaited if it's async
             const results = await calculateDFT(metricValues);
             setDftResults(results);
           } catch (error) {
@@ -361,7 +402,12 @@ export function DashboardClient() {
                 </div>
                 <div>
                   <h4 className="font-semibold mb-1">Recommendations:</h4>
-                  <p className="text-muted-foreground">{METRIC_INFO_CONTENT[infoMetricKey].recommendations}</p>
+                  <p className="text-muted-foreground">
+                    {
+                      METRIC_INFO_CONTENT[infoMetricKey].recommendations[getCurrentMetricStatusForInfo(infoMetricKey)] ||
+                      METRIC_INFO_CONTENT[infoMetricKey].recommendations.unknown
+                    }
+                  </p>
                 </div>
               </div>
             </ScrollArea>
@@ -398,3 +444,4 @@ function CardSkeleton({ metricId }: { metricId: MetricKey}) {
     </div>
   );
 }
+
