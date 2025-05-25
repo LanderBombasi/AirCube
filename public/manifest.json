@@ -1,0 +1,24 @@
+
+{
+  "name": "AirCube: Air Quality Monitoring",
+  "short_name": "AirCube",
+  "description": "Monitor CO2, CO, Combustible Gas, Temperature, and Humidity levels in real-time with AirCube.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2E9AFE",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

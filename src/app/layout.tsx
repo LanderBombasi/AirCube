@@ -18,6 +18,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'AirCube: Air Quality Monitoring',
   description: 'Monitor CO2, CO, Temperature, and Humidity levels in real-time with AirCube.',
+  manifest: '/manifest.json', // Added for PWA
 };
 
 export default function RootLayout({
@@ -27,6 +28,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="theme-color" content="#2E9AFE" />
+      </head>
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
         <SettingsProvider>
           {children}
