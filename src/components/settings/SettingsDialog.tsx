@@ -2,7 +2,7 @@
 "use client";
 
 import React from 'react';
-import { useSettings, type CustomThresholdValues } from '@/contexts/SettingsContext';
+import { useSettings, type CustomThresholdValues, type ColorThemeName, COLOR_THEMES } from '@/contexts/SettingsContext';
 import type { MetricKey } from '@/types/airQuality';
 import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS } from '@/lib/constants';
 import { Button } from "@/components/ui/button";
@@ -21,8 +21,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Cog } from 'lucide-react';
-import { Separator } from '../ui/separator';
+import { Cog, Palette } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 const THRESHOLD_FIELD_LABELS: Record<keyof CustomThresholdValues, string> = {
   normalHigh: "Normal Max",
@@ -35,11 +36,10 @@ const THRESHOLD_FIELD_LABELS: Record<keyof CustomThresholdValues, string> = {
 };
 
 const getRelevantThresholdKeys = (metricKey: MetricKey): (keyof CustomThresholdValues)[] => {
-  // Simplified: show all possible keys. Could be refined based on metric type.
-  if (metricKey === 'co2' || metricKey === 'co' || metricKey === 'combustible') {
+  if (metricKey === MetricKey.co2 || metricKey === MetricKey.co || metricKey === MetricKey.combustible) {
     return ['normalHigh', 'dangerHigh'];
   }
-  if (metricKey === 'humidity' || metricKey === 'temp') {
+  if (metricKey === MetricKey.humidity || metricKey === MetricKey.temp) {
      return ['idealLow', 'idealHigh', 'warningLow', 'warningHigh', 'dangerLow', 'dangerHigh'];
   }
   return [];
@@ -47,7 +47,16 @@ const getRelevantThresholdKeys = (metricKey: MetricKey): (keyof CustomThresholdV
 
 
 export function SettingsDialog() {
-  const { theme, setTheme, customThresholds, getThresholdsForMetric, updateThreshold, resetThresholds } = useSettings();
+  const { 
+    themeMode, 
+    setThemeMode, 
+    activeColorTheme,
+    setActiveColorTheme,
+    customThresholds, 
+    getThresholdsForMetric, 
+    updateThreshold, 
+    resetThresholds 
+  } = useSettings();
   const [isOpen, setIsOpen] = React.useState(false);
 
   const handleThresholdChange = (metric: MetricKey, field: keyof CustomThresholdValues, value: string) => {
@@ -72,42 +81,57 @@ export function SettingsDialog() {
         
         <ScrollArea className="max-h-[calc(80vh-200px)]">
           <div className="p-1">
-            <Tabs defaultValue="theme" className="w-full">
+            <Tabs defaultValue="appearance" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="theme">Appearance</TabsTrigger>
+                <TabsTrigger value="appearance">Appearance</TabsTrigger>
                 <TabsTrigger value="thresholds">Alert Thresholds</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="theme" className="py-4">
+              <TabsContent value="appearance" className="py-4">
                 <div className="space-y-6">
                   <div className="flex items-center justify-between rounded-lg border p-4">
                     <div>
-                      <Label htmlFor="theme-toggle" className="text-base font-semibold">Dark Mode</Label>
+                      <Label htmlFor="theme-mode-toggle" className="text-base font-semibold">Dark Mode</Label>
                       <p className="text-sm text-muted-foreground">
                         Toggle between light and dark themes.
                       </p>
                     </div>
                     <Switch
-                      id="theme-toggle"
-                      checked={theme === 'dark'}
-                      onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                      id="theme-mode-toggle"
+                      checked={themeMode === 'dark'}
+                      onCheckedChange={(checked) => setThemeMode(checked ? 'dark' : 'light')}
+                      aria-label="Toggle dark mode"
                     />
                   </div>
-                  {/* Placeholder for system theme if desired later
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                     <div>
-                       <Label htmlFor="theme-system" className="text-base font-semibold">System Preference</Label>
-                       <p className="text-sm text-muted-foreground">
-                         Automatically match your system's appearance.
-                       </p>
+
+                  <div className="rounded-lg border p-4">
+                     <div className="flex items-center justify-between">
+                        <div>
+                            <Label htmlFor="color-theme-select" className="text-base font-semibold flex items-center">
+                                <Palette className="h-5 w-5 mr-2 text-primary" />
+                                Color Theme
+                            </Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                                Choose an accent color theme for the application.
+                            </p>
+                        </div>
                      </div>
-                     <Switch
-                       id="theme-system"
-                       checked={theme === 'system'}
-                       onCheckedChange={(checked) => setTheme(checked ? 'system' : (localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'))}
-                     />
-                   </div>
-                   */}
+                     <Select
+                        value={activeColorTheme}
+                        onValueChange={(value) => setActiveColorTheme(value as ColorThemeName)}
+                      >
+                        <SelectTrigger id="color-theme-select" className="w-full mt-3">
+                          <SelectValue placeholder="Select a color theme" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.values(COLOR_THEMES).map((theme) => (
+                            <SelectItem key={theme.name} value={theme.name}>
+                              {theme.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                  </div>
                 </div>
               </TabsContent>
 
@@ -170,3 +194,4 @@ export function SettingsDialog() {
   );
 }
 
+    

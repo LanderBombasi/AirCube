@@ -5,7 +5,76 @@ import type { MetricKey, MetricConfig } from '@/types/airQuality';
 import { METRIC_CONFIGS as DEFAULT_METRIC_CONFIGS } from '@/lib/constants';
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
-export type Theme = 'light' | 'dark' | 'system';
+export type ThemeMode = 'light' | 'dark' | 'system';
+export type ColorThemeName = 'default' | 'oceanBlue' | 'forestGreen';
+
+interface ColorTheme {
+  name: ColorThemeName;
+  label: string;
+  colors: {
+    light: Partial<Record<string, string>>; // CSS Var -> HSL Value
+    dark?: Partial<Record<string, string>>; // Optional: specific dark overrides for this theme
+  };
+}
+
+export const COLOR_THEMES: Record<ColorThemeName, ColorTheme> = {
+  default: {
+    name: 'default',
+    label: 'Default',
+    colors: { light: {} }, // No overrides, uses globals.css
+  },
+  oceanBlue: {
+    name: 'oceanBlue',
+    label: 'Ocean Blue',
+    colors: {
+      light: {
+        '--background': '200 50% 95%',
+        '--foreground': '210 60% 20%',
+        '--card': '200 50% 100%',
+        '--card-foreground': '210 60% 20%',
+        '--popover': '200 50% 100%',
+        '--popover-foreground': '210 60% 20%',
+        '--primary': '205 80% 50%',
+        '--primary-foreground': '0 0% 100%',
+        '--secondary': '200 40% 90%',
+        '--secondary-foreground': '210 50% 30%',
+        '--muted': '200 30% 85%',
+        '--muted-foreground': '210 30% 45%',
+        '--accent': '180 70% 60%',
+        '--accent-foreground': '210 60% 20%',
+        '--border': '200 30% 85%',
+        '--input': '200 30% 85%',
+        '--ring': '205 80% 50%',
+      },
+    },
+  },
+  forestGreen: {
+    name: 'forestGreen',
+    label: 'Forest Green',
+    colors: {
+      light: {
+        '--background': '120 20% 96%',
+        '--foreground': '120 60% 15%',
+        '--card': '120 20% 100%',
+        '--card-foreground': '120 60% 15%',
+        '--popover': '120 20% 100%',
+        '--popover-foreground': '120 60% 15%',
+        '--primary': '130 50% 40%',
+        '--primary-foreground': '0 0% 100%',
+        '--secondary': '120 15% 92%',
+        '--secondary-foreground': '120 50% 25%',
+        '--muted': '120 10% 88%',
+        '--muted-foreground': '120 30% 40%',
+        '--accent': '90 60% 55%',
+        '--accent-foreground': '120 60% 15%',
+        '--border': '120 15% 88%',
+        '--input': '120 15% 88%',
+        '--ring': '130 50% 40%',
+      },
+    },
+  },
+};
+
 
 export interface CustomThresholdValues {
   normalHigh?: number;
@@ -20,8 +89,10 @@ export interface CustomThresholdValues {
 export type CustomThresholds = Partial<Record<MetricKey, CustomThresholdValues>>;
 
 interface SettingsContextType {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
+  themeMode: ThemeMode;
+  setThemeMode: (themeMode: ThemeMode) => void;
+  activeColorTheme: ColorThemeName;
+  setActiveColorTheme: (themeName: ColorThemeName) => void;
   customThresholds: CustomThresholds;
   getThresholdsForMetric: (metricKey: MetricKey) => MetricConfig['thresholds'];
   updateThreshold: (metricKey: MetricKey, field: keyof CustomThresholdValues, value: string | number) => void;
@@ -30,14 +101,25 @@ interface SettingsContextType {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
-const getInitialTheme = (): Theme => {
+const getInitialThemeMode = (): ThemeMode => {
   if (typeof window !== 'undefined') {
-    const storedTheme = localStorage.getItem('theme') as Theme | null;
+    const storedTheme = localStorage.getItem('themeMode') as ThemeMode | null;
     if (storedTheme) return storedTheme;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
-  return 'light'; // Default for server-side or if window is not available
+  return 'light'; 
 };
+
+const getInitialColorTheme = (): ColorThemeName => {
+  if (typeof window !== 'undefined') {
+    const storedColorTheme = localStorage.getItem('activeColorTheme') as ColorThemeName | null;
+    if (storedColorTheme && COLOR_THEMES[storedColorTheme]) {
+      return storedColorTheme;
+    }
+  }
+  return 'default';
+};
+
 
 const getInitialCustomThresholds = (): CustomThresholds => {
   if (typeof window !== 'undefined') {
@@ -55,38 +137,67 @@ const getInitialCustomThresholds = (): CustomThresholds => {
 };
 
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
-  const [theme, setThemeState] = useState<Theme>('light');
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
+  const [activeColorTheme, setActiveColorThemeState] = useState<ColorThemeName>('default');
   const [customThresholds, setCustomThresholds] = useState<CustomThresholds>({});
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
-    setThemeState(getInitialTheme());
+    setThemeModeState(getInitialThemeMode());
+    setActiveColorThemeState(getInitialColorTheme());
     setCustomThresholds(getInitialCustomThresholds());
   }, []);
 
+  // Effect to apply color theme and dark/light mode
   useEffect(() => {
     if (!isMounted) return;
 
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
+    
+    // Apply color theme variables
+    const selectedTheme = COLOR_THEMES[activeColorTheme];
+    const colorsToApply = selectedTheme.colors.light; // For now, custom themes only affect light mode directly
 
-    let systemTheme: Theme = 'light';
+    // Remove any previously applied inline theme styles
+    Object.keys(COLOR_THEMES).forEach(themeKey => {
+      const theme = COLOR_THEMES[themeKey as ColorThemeName];
+      Object.keys(theme.colors.light).forEach(cssVar => {
+        root.style.removeProperty(cssVar);
+      });
+    });
+    
+    if (activeColorTheme !== 'default') {
+      Object.entries(colorsToApply).forEach(([cssVar, hslValue]) => {
+        root.style.setProperty(cssVar, hslValue);
+      });
+    }
+    localStorage.setItem('activeColorTheme', activeColorTheme);
+
+    // Apply dark/light mode class
+    root.classList.remove('light', 'dark');
+    let systemThemeMode: ThemeMode = 'light';
     if (typeof window !== 'undefined') {
-      systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      systemThemeMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     }
     
-    if (theme === 'system') {
-      root.classList.add(systemTheme);
+    if (themeMode === 'system') {
+      root.classList.add(systemThemeMode);
     } else {
-      root.classList.add(theme);
+      root.classList.add(themeMode);
     }
-    localStorage.setItem('theme', theme);
-  }, [theme, isMounted]);
+    localStorage.setItem('themeMode', themeMode);
 
-  const setTheme = (newTheme: Theme) => {
+  }, [themeMode, activeColorTheme, isMounted]);
+
+  const setThemeMode = (newThemeMode: ThemeMode) => {
     if (!isMounted) return;
-    setThemeState(newTheme);
+    setThemeModeState(newThemeMode);
+  };
+
+  const setActiveColorTheme = (newColorTheme: ColorThemeName) => {
+    if (!isMounted) return;
+    setActiveColorThemeState(newColorTheme);
   };
 
   const updateThreshold = useCallback((metricKey: MetricKey, field: keyof CustomThresholdValues, value: string | number) => {
@@ -129,12 +240,12 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   }, [isMounted]);
 
   const getSeasonalTempThresholds = useCallback((): MetricConfig['thresholds'] => {
-    const month = new Date().getMonth(); // 0 (Jan) to 11 (Dec)
-    if (month === 11 || month === 0 || month === 1) { // Dec, Jan, Feb
+    const month = new Date().getMonth(); 
+    if (month === 11 || month === 0 || month === 1) { 
       return { idealLow: 24, idealHigh: 31, warningLow: 21, warningHigh: 34, dangerLow: 20, dangerHigh: 35 };
-    } else if (month >= 2 && month <= 4) { // Mar, Apr, May
+    } else if (month >= 2 && month <= 4) { 
       return { idealLow: 28, idealHigh: 38, warningLow: 25, warningHigh: 41, dangerLow: 24, dangerHigh: 42 };
-    } else { // June - November
+    } else { 
       return { idealLow: 27, idealHigh: 34, warningLow: 24, warningHigh: 37, dangerLow: 23, dangerHigh: 38 };
     }
   }, []);
@@ -145,10 +256,9 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
     const baseDefaults = DEFAULT_METRIC_CONFIGS[metricKey]?.thresholds || {};
     const userCustomSettings = customThresholds[metricKey];
 
-    if (metricKey === 'temp') {
+    if (metricKey === MetricKey.temp) {
       const hasCustomTempSettings = userCustomSettings && Object.keys(userCustomSettings).some(key => userCustomSettings[key as keyof CustomThresholdValues] !== undefined);
       if (hasCustomTempSettings) {
-        // Merge user's custom temp settings with base defaults for temp
         const merged = { ...baseDefaults };
          for (const key in userCustomSettings) {
           if (Object.prototype.hasOwnProperty.call(userCustomSettings, key)) {
@@ -160,11 +270,9 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         }
         return merged;
       } else {
-        // No custom temp settings by user, return seasonal defaults
         return getSeasonalTempThresholds();
       }
     } else {
-      // For metrics other than temperature
       if (userCustomSettings && Object.keys(userCustomSettings).length > 0) {
         const merged = { ...baseDefaults };
         for (const key in userCustomSettings) {
@@ -187,7 +295,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <SettingsContext.Provider value={{ theme, setTheme, customThresholds, getThresholdsForMetric, updateThreshold, resetThresholds }}>
+    <SettingsContext.Provider value={{ themeMode, setThemeMode, activeColorTheme, setActiveColorTheme, customThresholds, getThresholdsForMetric, updateThreshold, resetThresholds }}>
       {children}
     </SettingsContext.Provider>
   );
@@ -200,3 +308,5 @@ export const useSettings = () => {
   }
   return context;
 };
+
+    
